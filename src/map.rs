@@ -677,6 +677,22 @@ where
         self.inner.get_full_mut(key)
     }
 
+    /// Return the values for `N` keys. If any key is missing a value, or there
+    /// are duplicate keys, `None` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut map = ordermap::OrderMap::from([(1, 'a'), (3, 'b'), (2, 'c')]);
+    /// assert_eq!(map.get_disjoint_mut([&2, &1]), Some([&mut 'c', &mut 'a']));
+    /// ```
+    pub fn get_disjoint_mut<Q, const N: usize>(&mut self, keys: [&Q; N]) -> Option<[&mut V; N]>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.inner.get_disjoint_mut(keys)
+    }
+
     /// Remove the key-value pair equivalent to `key` and return its value.
     ///
     /// **NOTE:** This is equivalent to [`IndexMap::shift_remove`], and
@@ -1009,6 +1025,25 @@ impl<K, V, S> OrderMap<K, V, S> {
     /// Computes in **O(1)** time.
     pub fn get_index_entry(&mut self, index: usize) -> Option<IndexedEntry<'_, K, V>> {
         self.inner.get_index_entry(index).map(IndexedEntry::new)
+    }
+
+    /// Get an array of `N` key-value pairs by `N` indices
+    ///
+    /// Valid indices are *0 <= index < self.len()* and each index needs to be unique.
+    ///
+    /// Computes in **O(1)** time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut map = ordermap::OrderMap::from([(1, 'a'), (3, 'b'), (2, 'c')]);
+    /// assert_eq!(map.get_disjoint_indices_mut([2, 0]), Some([(&2, &mut 'c'), (&1, &mut 'a')]));
+    /// ```
+    pub fn get_disjoint_indices_mut<const N: usize>(
+        &mut self,
+        indices: [usize; N],
+    ) -> Option<[(&K, &mut V); N]> {
+        self.inner.get_disjoint_indices_mut(indices)
     }
 
     /// Returns a slice of key-value pairs in the given range of indices.

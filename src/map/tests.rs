@@ -810,3 +810,94 @@ fn test_partition_point() {
     assert_eq!(b.partition_point(|_, &x| x < 7), 4);
     assert_eq!(b.partition_point(|_, &x| x < 8), 5);
 }
+
+#[test]
+fn disjoint_mut_empty_map() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    assert!(map.get_disjoint_mut([&0, &1, &2, &3]).is_none());
+}
+
+#[test]
+fn disjoint_mut_empty_param() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    assert!(map.get_disjoint_mut([] as [&u32; 0]).is_some());
+}
+
+#[test]
+fn disjoint_mut_single_fail() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    assert!(map.get_disjoint_mut([&0]).is_none());
+}
+
+#[test]
+fn disjoint_mut_single_success() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    assert_eq!(map.get_disjoint_mut([&1]), Some([&mut 10]));
+}
+
+#[test]
+fn disjoint_mut_multi_success() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 100);
+    map.insert(2, 200);
+    map.insert(3, 300);
+    map.insert(4, 400);
+    assert_eq!(map.get_disjoint_mut([&1, &2]), Some([&mut 100, &mut 200]));
+    assert_eq!(map.get_disjoint_mut([&1, &3]), Some([&mut 100, &mut 300]));
+    assert_eq!(
+        map.get_disjoint_mut([&3, &1, &4, &2]),
+        Some([&mut 300, &mut 100, &mut 400, &mut 200])
+    );
+}
+
+#[test]
+fn disjoint_mut_multi_success_unsized_key() {
+    let mut map: OrderMap<&'static str, u32> = OrderMap::default();
+    map.insert("1", 100);
+    map.insert("2", 200);
+    map.insert("3", 300);
+    map.insert("4", 400);
+    assert_eq!(map.get_disjoint_mut(["1", "2"]), Some([&mut 100, &mut 200]));
+    assert_eq!(map.get_disjoint_mut(["1", "3"]), Some([&mut 100, &mut 300]));
+    assert_eq!(
+        map.get_disjoint_mut(["3", "1", "4", "2"]),
+        Some([&mut 300, &mut 100, &mut 400, &mut 200])
+    );
+}
+
+#[test]
+fn disjoint_mut_multi_fail_missing() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    map.insert(1123, 100);
+    map.insert(321, 20);
+    map.insert(1337, 30);
+    assert_eq!(map.get_disjoint_mut([&121, &1123]), None);
+    assert_eq!(map.get_disjoint_mut([&1, &1337, &56]), None);
+    assert_eq!(map.get_disjoint_mut([&1337, &123, &321, &1, &1123]), None);
+}
+
+#[test]
+fn disjoint_mut_multi_fail_duplicate() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    map.insert(1123, 100);
+    map.insert(321, 20);
+    map.insert(1337, 30);
+    assert_eq!(map.get_disjoint_mut([&1, &1]), None);
+    assert_eq!(
+        map.get_disjoint_mut([&1337, &123, &321, &1337, &1, &1123]),
+        None
+    );
+}
+
+#[test]
+fn many_index_mut_fail_oob() {
+    let mut map: OrderMap<u32, u32> = OrderMap::default();
+    map.insert(1, 10);
+    map.insert(321, 20);
+    assert_eq!(map.get_disjoint_indices_mut([1, 3]), None);
+}
