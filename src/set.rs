@@ -18,7 +18,8 @@ mod tests;
 
 pub use self::mutable::MutableValues;
 pub use indexmap::set::{
-    Difference, Drain, Intersection, IntoIter, Iter, Slice, Splice, SymmetricDifference, Union,
+    Difference, Drain, ExtractIf, Intersection, IntoIter, Iter, Slice, Splice, SymmetricDifference,
+    Union,
 };
 
 #[cfg(feature = "rayon")]
@@ -231,6 +232,41 @@ impl<T, S> OrderSet<T, S> {
         R: RangeBounds<usize>,
     {
         self.inner.drain(range)
+    }
+
+    /// Creates an iterator which uses a closure to determine if a value should be removed.
+    ///
+    /// If the closure returns true, then the value is removed and yielded.
+    /// If the closure returns false, the value will remain in the list and will not be yielded
+    /// by the iterator.
+    ///
+    /// If the returned `ExtractIf` is not exhausted, e.g. because it is dropped without iterating
+    /// or the iteration short-circuits, then the remaining elements will be retained.
+    /// Use [`retain`] with a negated predicate if you do not need the returned iterator.
+    ///
+    /// [`retain`]: OrderSet::retain
+    ///
+    /// # Examples
+    ///
+    /// Splitting a set into even and odd values, reusing the original set:
+    ///
+    /// ```
+    /// use ordermap::OrderSet;
+    ///
+    /// let mut set: OrderSet<i32> = (0..8).collect();
+    /// let extracted: OrderSet<i32> = set.extract_if(|v| v % 2 == 0).collect();
+    ///
+    /// let evens = extracted.into_iter().collect::<Vec<_>>();
+    /// let odds = set.into_iter().collect::<Vec<_>>();
+    ///
+    /// assert_eq!(evens, vec![0, 2, 4, 6]);
+    /// assert_eq!(odds, vec![1, 3, 5, 7]);
+    /// ```
+    pub fn extract_if<F>(&mut self, pred: F) -> ExtractIf<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.inner.extract_if(.., pred)
     }
 
     /// Splits the collection into two at the given index.
