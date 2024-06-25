@@ -1,8 +1,8 @@
-use indexmap::{indexmap, indexset};
+use ordermap::{ordermap, orderset};
 
 #[test]
 fn test_sort() {
-    let m = indexmap! {
+    let m = ordermap! {
         1 => 2,
         7 => 1,
         2 => 2,
@@ -17,7 +17,7 @@ fn test_sort() {
 
 #[test]
 fn test_sort_set() {
-    let s = indexset! {
+    let s = orderset! {
         1,
         7,
         2,

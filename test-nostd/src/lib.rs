@@ -3,8 +3,8 @@
 use core::hash::BuildHasherDefault;
 use core::hash::Hasher;
 
-use indexmap::IndexMap;
-use indexmap::IndexSet;
+use ordermap::OrderMap;
+use ordermap::OrderSet;
 
 #[derive(Default)]
 struct BadHasher(u64);
@@ -20,8 +20,8 @@ impl Hasher for BadHasher {
     }
 }
 
-type Map<K, V> = IndexMap<K, V, BuildHasherDefault<BadHasher>>;
-type Set<T> = IndexSet<T, BuildHasherDefault<BadHasher>>;
+type Map<K, V> = OrderMap<K, V, BuildHasherDefault<BadHasher>>;
+type Set<T> = OrderSet<T, BuildHasherDefault<BadHasher>>;
 
 pub fn test_compile() {
     let mut map = Map::default();

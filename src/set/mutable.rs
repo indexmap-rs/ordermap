@@ -1,9 +1,8 @@
+use super::{Equivalent, OrderSet};
 use core::hash::{BuildHasher, Hash};
+use indexmap::set::MutableValues as _;
 
-use super::{Equivalent, IndexSet};
-use crate::map::MutableKeys;
-
-/// Opt-in mutable access to [`IndexSet`] values.
+/// Opt-in mutable access to [`OrderSet`] values.
 ///
 /// These methods expose `&mut T`, mutable references to the value as it is stored
 /// in the set.
@@ -14,7 +13,7 @@ use crate::map::MutableKeys;
 /// This is sound (memory safe) but a logical error hazard (just like
 /// implementing `PartialEq`, `Eq`, or `Hash` incorrectly would be).
 ///
-/// `use` this trait to enable its methods for `IndexSet`.
+/// `use` this trait to enable its methods for `OrderSet`.
 ///
 /// This trait is sealed and cannot be implemented for types outside this crate.
 pub trait MutableValues: private::Sealed {
@@ -45,10 +44,10 @@ pub trait MutableValues: private::Sealed {
         F: FnMut(&mut Self::Value) -> bool;
 }
 
-/// Opt-in mutable access to [`IndexSet`] values.
+/// Opt-in mutable access to [`OrderSet`] values.
 ///
 /// See [`MutableValues`] for more information.
-impl<T, S> MutableValues for IndexSet<T, S>
+impl<T, S> MutableValues for OrderSet<T, S>
 where
     S: BuildHasher,
 {
@@ -58,29 +57,23 @@ where
     where
         Q: ?Sized + Hash + Equivalent<T>,
     {
-        match self.map.get_full_mut2(value) {
-            Some((index, value, ())) => Some((index, value)),
-            None => None,
-        }
+        self.inner.get_full_mut2(value)
     }
 
     fn get_index_mut2(&mut self, index: usize) -> Option<&mut T> {
-        match self.map.get_index_mut2(index) {
-            Some((value, ())) => Some(value),
-            None => None,
-        }
+        self.inner.get_index_mut2(index)
     }
 
-    fn retain2<F>(&mut self, mut keep: F)
+    fn retain2<F>(&mut self, keep: F)
     where
         F: FnMut(&mut T) -> bool,
     {
-        self.map.retain2(move |value, ()| keep(value));
+        self.inner.retain2(keep);
     }
 }
 
 mod private {
     pub trait Sealed {}
 
-    impl<T, S> Sealed for super::IndexSet<T, S> {}
+    impl<T, S> Sealed for super::OrderSet<T, S> {}
 }

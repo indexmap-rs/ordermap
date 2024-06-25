@@ -1,42 +1,23 @@
 #![cfg_attr(docsrs, doc(cfg(feature = "borsh")))]
 
-use alloc::vec::Vec;
+use crate::{OrderMap, OrderSet};
+use borsh::io::{Read, Result, Write};
+use borsh::{BorshDeserialize, BorshSerialize};
 use core::hash::BuildHasher;
 use core::hash::Hash;
-use core::mem::size_of;
 
-use borsh::error::ERROR_ZST_FORBIDDEN;
-use borsh::io::{Error, ErrorKind, Read, Result, Write};
-use borsh::{BorshDeserialize, BorshSerialize};
-
-use crate::map::IndexMap;
-use crate::set::IndexSet;
-
-impl<K, V, S> BorshSerialize for IndexMap<K, V, S>
+impl<K, V, S> BorshSerialize for OrderMap<K, V, S>
 where
     K: BorshSerialize,
     V: BorshSerialize,
 {
     #[inline]
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
-        check_zst::<K>()?;
-
-        let iterator = self.iter();
-
-        u32::try_from(iterator.len())
-            .map_err(|_| ErrorKind::InvalidData)?
-            .serialize(writer)?;
-
-        for (key, value) in iterator {
-            key.serialize(writer)?;
-            value.serialize(writer)?;
-        }
-
-        Ok(())
+        self.inner.serialize(writer)
     }
 }
 
-impl<K, V, S> BorshDeserialize for IndexMap<K, V, S>
+impl<K, V, S> BorshDeserialize for OrderMap<K, V, S>
 where
     K: BorshDeserialize + Eq + Hash,
     V: BorshDeserialize,
@@ -44,52 +25,33 @@ where
 {
     #[inline]
     fn deserialize_reader<R: Read>(reader: &mut R) -> Result<Self> {
-        check_zst::<K>()?;
-        let vec = <Vec<(K, V)>>::deserialize_reader(reader)?;
-        Ok(vec.into_iter().collect::<IndexMap<K, V, S>>())
+        Ok(Self {
+            inner: <_>::deserialize_reader(reader)?,
+        })
     }
 }
 
-impl<T, S> BorshSerialize for IndexSet<T, S>
+impl<T, S> BorshSerialize for OrderSet<T, S>
 where
     T: BorshSerialize,
 {
     #[inline]
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<()> {
-        check_zst::<T>()?;
-
-        let iterator = self.iter();
-
-        u32::try_from(iterator.len())
-            .map_err(|_| ErrorKind::InvalidData)?
-            .serialize(writer)?;
-
-        for item in iterator {
-            item.serialize(writer)?;
-        }
-
-        Ok(())
+        self.inner.serialize(writer)
     }
 }
 
-impl<T, S> BorshDeserialize for IndexSet<T, S>
+impl<T, S> BorshDeserialize for OrderSet<T, S>
 where
     T: BorshDeserialize + Eq + Hash,
     S: BuildHasher + Default,
 {
     #[inline]
     fn deserialize_reader<R: Read>(reader: &mut R) -> Result<Self> {
-        check_zst::<T>()?;
-        let vec = <Vec<T>>::deserialize_reader(reader)?;
-        Ok(vec.into_iter().collect::<IndexSet<T, S>>())
+        Ok(Self {
+            inner: <_>::deserialize_reader(reader)?,
+        })
     }
-}
-
-fn check_zst<T>() -> Result<()> {
-    if size_of::<T>() == 0 {
-        return Err(Error::new(ErrorKind::InvalidData, ERROR_ZST_FORBIDDEN));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -98,24 +60,24 @@ mod borsh_tests {
 
     #[test]
     fn map_borsh_roundtrip() {
-        let original_map: IndexMap<i32, i32> = {
-            let mut map = IndexMap::new();
+        let original_map: OrderMap<i32, i32> = {
+            let mut map = OrderMap::new();
             map.insert(1, 2);
             map.insert(3, 4);
             map.insert(5, 6);
             map
         };
         let serialized_map = borsh::to_vec(&original_map).unwrap();
-        let deserialized_map: IndexMap<i32, i32> =
+        let deserialized_map: OrderMap<i32, i32> =
             BorshDeserialize::try_from_slice(&serialized_map).unwrap();
         assert_eq!(original_map, deserialized_map);
     }
 
     #[test]
     fn set_borsh_roundtrip() {
-        let original_map: IndexSet<i32> = [1, 2, 3, 4, 5, 6].into_iter().collect();
+        let original_map: OrderSet<i32> = [1, 2, 3, 4, 5, 6].into_iter().collect();
         let serialized_map = borsh::to_vec(&original_map).unwrap();
-        let deserialized_map: IndexSet<i32> =
+        let deserialized_map: OrderSet<i32> =
             BorshDeserialize::try_from_slice(&serialized_map).unwrap();
         assert_eq!(original_map, deserialized_map);
     }

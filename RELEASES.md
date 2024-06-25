@@ -1,5 +1,12 @@
 # Releases
 
+## 0.5.0
+
+- Reinstated `ordermap` as a crate that wraps `indexmap` with stronger
+  ordering semantics. It **does** consider order for `PartialEq` and `Eq`,
+  also adding implementations of `PartialOrd`, `Ord`, and `Hash`. Methods
+  like `remove` use the semantics of indexmap's `shift_remove`.
+
 ## 0.4.2
 
 - Inserted more deprecation information in the documentation.

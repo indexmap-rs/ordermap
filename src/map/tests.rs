@@ -1,9 +1,10 @@
 use super::*;
 use std::string::String;
+use std::vec::Vec;
 
 #[test]
 fn it_works() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
     assert_eq!(map.is_empty(), true);
     map.insert(1, ());
     map.insert(1, ());
@@ -14,7 +15,7 @@ fn it_works() {
 
 #[test]
 fn new() {
-    let map = IndexMap::<String, String>::new();
+    let map = OrderMap::<String, String>::new();
     println!("{:?}", map);
     assert_eq!(map.capacity(), 0);
     assert_eq!(map.len(), 0);
@@ -25,7 +26,7 @@ fn new() {
 fn insert() {
     let insert = [0, 4, 2, 12, 8, 7, 11, 5];
     let not_present = [1, 3, 6, 9, 10];
-    let mut map = IndexMap::with_capacity(insert.len());
+    let mut map = OrderMap::with_capacity(insert.len());
 
     for (i, &elt) in insert.iter().enumerate() {
         assert_eq!(map.len(), i);
@@ -45,7 +46,7 @@ fn insert() {
 fn insert_full() {
     let insert = vec![9, 2, 7, 1, 4, 6, 13];
     let present = vec![1, 6, 2];
-    let mut map = IndexMap::with_capacity(insert.len());
+    let mut map = OrderMap::with_capacity(insert.len());
 
     for (i, &elt) in insert.iter().enumerate() {
         assert_eq!(map.len(), i);
@@ -66,7 +67,7 @@ fn insert_full() {
 
 #[test]
 fn insert_2() {
-    let mut map = IndexMap::with_capacity(16);
+    let mut map = OrderMap::with_capacity(16);
 
     let mut keys = vec![];
     keys.extend(0..16);
@@ -92,7 +93,7 @@ fn insert_2() {
 #[test]
 fn insert_order() {
     let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     for &elt in &insert {
         map.insert(elt, ());
@@ -111,7 +112,7 @@ fn insert_order() {
 #[test]
 fn shift_insert() {
     let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     for &elt in &insert {
         map.shift_insert(0, elt, ());
@@ -139,7 +140,7 @@ fn shift_insert() {
 fn grow() {
     let insert = [0, 4, 2, 12, 8, 7, 11];
     let not_present = [1, 3, 6, 9, 10];
-    let mut map = IndexMap::with_capacity(insert.len());
+    let mut map = OrderMap::with_capacity(insert.len());
 
     for (i, &elt) in insert.iter().enumerate() {
         assert_eq!(map.len(), i);
@@ -167,7 +168,7 @@ fn grow() {
 
 #[test]
 fn reserve() {
-    let mut map = IndexMap::<usize, usize>::new();
+    let mut map = OrderMap::<usize, usize>::new();
     assert_eq!(map.capacity(), 0);
     map.reserve(100);
     let capacity = map.capacity();
@@ -187,7 +188,7 @@ fn reserve() {
 
 #[test]
 fn try_reserve() {
-    let mut map = IndexMap::<usize, usize>::new();
+    let mut map = OrderMap::<usize, usize>::new();
     assert_eq!(map.capacity(), 0);
     assert_eq!(map.try_reserve(100), Ok(()));
     assert!(map.capacity() >= 100);
@@ -196,7 +197,7 @@ fn try_reserve() {
 
 #[test]
 fn shrink_to_fit() {
-    let mut map = IndexMap::<usize, usize>::new();
+    let mut map = OrderMap::<usize, usize>::new();
     assert_eq!(map.capacity(), 0);
     for i in 0..100 {
         assert_eq!(map.len(), i);
@@ -214,7 +215,7 @@ fn shrink_to_fit() {
 #[test]
 fn remove() {
     let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     for &elt in &insert {
         map.insert(elt, elt);
@@ -249,7 +250,7 @@ fn remove() {
 
 #[test]
 fn remove_to_empty() {
-    let mut map = indexmap! { 0 => 0, 4 => 4, 5 => 5 };
+    let mut map = ordermap! { 0 => 0, 4 => 4, 5 => 5 };
     map.swap_remove(&5).unwrap();
     map.swap_remove(&4).unwrap();
     map.swap_remove(&0).unwrap();
@@ -259,7 +260,7 @@ fn remove_to_empty() {
 #[test]
 fn swap_remove_index() {
     let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     for &elt in &insert {
         map.insert(elt, elt * 2);
@@ -283,22 +284,18 @@ fn swap_remove_index() {
 
 #[test]
 fn partial_eq_and_eq() {
-    let mut map_a = IndexMap::new();
+    let mut map_a = OrderMap::new();
     map_a.insert(1, "1");
     map_a.insert(2, "2");
     let mut map_b = map_a.clone();
     assert_eq!(map_a, map_b);
     map_b.swap_remove(&1);
     assert_ne!(map_a, map_b);
-
-    let map_c: IndexMap<_, String> = map_b.into_iter().map(|(k, v)| (k, v.into())).collect();
-    assert_ne!(map_a, map_c);
-    assert_ne!(map_c, map_a);
 }
 
 #[test]
 fn extend() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
     map.extend(vec![(&1, &2), (&3, &4)]);
     map.extend(vec![(5, 6)]);
     assert_eq!(
@@ -309,7 +306,7 @@ fn extend() {
 
 #[test]
 fn entry() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     map.insert(1, "1");
     map.insert(2, "2");
@@ -332,7 +329,7 @@ fn entry() {
 
 #[test]
 fn entry_and_modify() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     map.insert(1, "1");
     map.entry(1).and_modify(|x| *x = "2");
@@ -344,7 +341,7 @@ fn entry_and_modify() {
 
 #[test]
 fn entry_or_default() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     #[derive(Debug, PartialEq)]
     enum TestEnum {
@@ -372,7 +369,7 @@ fn occupied_entry_key() {
     let k2_ptr = k2 as *const i32;
     assert_ne!(k1_ptr, k2_ptr);
 
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
     map.insert(k1, "value");
     match map.entry(k2) {
         Entry::Occupied(ref e) => {
@@ -388,7 +385,7 @@ fn occupied_entry_key() {
 
 #[test]
 fn get_index_entry() {
-    let mut map = IndexMap::new();
+    let mut map = OrderMap::new();
 
     assert!(map.get_index_entry(0).is_none());
 
@@ -419,7 +416,7 @@ fn get_index_entry() {
 #[test]
 fn keys() {
     let vec = vec![(1, 'a'), (2, 'b'), (3, 'c')];
-    let map: IndexMap<_, _> = vec.into_iter().collect();
+    let map: OrderMap<_, _> = vec.into_iter().collect();
     let keys: Vec<_> = map.keys().copied().collect();
     assert_eq!(keys.len(), 3);
     assert!(keys.contains(&1));
@@ -430,7 +427,7 @@ fn keys() {
 #[test]
 fn into_keys() {
     let vec = vec![(1, 'a'), (2, 'b'), (3, 'c')];
-    let map: IndexMap<_, _> = vec.into_iter().collect();
+    let map: OrderMap<_, _> = vec.into_iter().collect();
     let keys: Vec<i32> = map.into_keys().collect();
     assert_eq!(keys.len(), 3);
     assert!(keys.contains(&1));
@@ -441,7 +438,7 @@ fn into_keys() {
 #[test]
 fn values() {
     let vec = vec![(1, 'a'), (2, 'b'), (3, 'c')];
-    let map: IndexMap<_, _> = vec.into_iter().collect();
+    let map: OrderMap<_, _> = vec.into_iter().collect();
     let values: Vec<_> = map.values().copied().collect();
     assert_eq!(values.len(), 3);
     assert!(values.contains(&'a'));
@@ -452,7 +449,7 @@ fn values() {
 #[test]
 fn values_mut() {
     let vec = vec![(1, 1), (2, 2), (3, 3)];
-    let mut map: IndexMap<_, _> = vec.into_iter().collect();
+    let mut map: OrderMap<_, _> = vec.into_iter().collect();
     for value in map.values_mut() {
         *value *= 2
     }
@@ -466,7 +463,7 @@ fn values_mut() {
 #[test]
 fn into_values() {
     let vec = vec![(1, 'a'), (2, 'b'), (3, 'c')];
-    let map: IndexMap<_, _> = vec.into_iter().collect();
+    let map: OrderMap<_, _> = vec.into_iter().collect();
     let values: Vec<char> = map.into_values().collect();
     assert_eq!(values.len(), 3);
     assert!(values.contains(&'a'));
@@ -477,8 +474,8 @@ fn into_values() {
 #[test]
 #[cfg(feature = "std")]
 fn from_array() {
-    let map = IndexMap::from([(1, 2), (3, 4)]);
-    let mut expected = IndexMap::new();
+    let map = OrderMap::from([(1, 2), (3, 4)]);
+    let mut expected = OrderMap::new();
     expected.insert(1, 2);
     expected.insert(3, 4);
 
@@ -508,14 +505,14 @@ fn iter_default() {
 #[test]
 fn test_binary_search_by() {
     // adapted from std's test for binary_search
-    let b: IndexMap<_, i32> = []
+    let b: OrderMap<_, i32> = []
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&5)), Err(0));
 
-    let b: IndexMap<_, i32> = [4]
+    let b: OrderMap<_, i32> = [4]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -524,7 +521,7 @@ fn test_binary_search_by() {
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&4)), Ok(0));
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&5)), Err(1));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -534,14 +531,14 @@ fn test_binary_search_by() {
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&7)), Err(4));
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&8)), Ok(4));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&9)), Err(6));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -550,7 +547,7 @@ fn test_binary_search_by() {
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&5)), Err(3));
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&8)), Ok(5));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -558,7 +555,7 @@ fn test_binary_search_by() {
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&7)), Err(5));
     assert_eq!(b.binary_search_by(|_, x| x.cmp(&0)), Err(0));
 
-    let b: IndexMap<_, i32> = [1, 3, 3, 3, 7]
+    let b: OrderMap<_, i32> = [1, 3, 3, 3, 7]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -584,14 +581,14 @@ fn test_binary_search_by() {
 #[test]
 fn test_binary_search_by_key() {
     // adapted from std's test for binary_search
-    let b: IndexMap<_, i32> = []
+    let b: OrderMap<_, i32> = []
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.binary_search_by_key(&5, |_, &x| x), Err(0));
 
-    let b: IndexMap<_, i32> = [4]
+    let b: OrderMap<_, i32> = [4]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -600,7 +597,7 @@ fn test_binary_search_by_key() {
     assert_eq!(b.binary_search_by_key(&4, |_, &x| x), Ok(0));
     assert_eq!(b.binary_search_by_key(&5, |_, &x| x), Err(1));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -610,14 +607,14 @@ fn test_binary_search_by_key() {
     assert_eq!(b.binary_search_by_key(&7, |_, &x| x), Err(4));
     assert_eq!(b.binary_search_by_key(&8, |_, &x| x), Ok(4));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.binary_search_by_key(&9, |_, &x| x), Err(6));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -626,7 +623,7 @@ fn test_binary_search_by_key() {
     assert_eq!(b.binary_search_by_key(&5, |_, &x| x), Err(3));
     assert_eq!(b.binary_search_by_key(&8, |_, &x| x), Ok(5));
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -634,7 +631,7 @@ fn test_binary_search_by_key() {
     assert_eq!(b.binary_search_by_key(&7, |_, &x| x), Err(5));
     assert_eq!(b.binary_search_by_key(&0, |_, &x| x), Err(0));
 
-    let b: IndexMap<_, i32> = [1, 3, 3, 3, 7]
+    let b: OrderMap<_, i32> = [1, 3, 3, 3, 7]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -660,14 +657,14 @@ fn test_binary_search_by_key() {
 #[test]
 fn test_partition_point() {
     // adapted from std's test for partition_point
-    let b: IndexMap<_, i32> = []
+    let b: OrderMap<_, i32> = []
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.partition_point(|_, &x| x < 5), 0);
 
-    let b: IndexMap<_, i32> = [4]
+    let b: OrderMap<_, i32> = [4]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -676,7 +673,7 @@ fn test_partition_point() {
     assert_eq!(b.partition_point(|_, &x| x < 4), 0);
     assert_eq!(b.partition_point(|_, &x| x < 5), 1);
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -686,14 +683,14 @@ fn test_partition_point() {
     assert_eq!(b.partition_point(|_, &x| x < 7), 4);
     assert_eq!(b.partition_point(|_, &x| x < 8), 4);
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
         .collect();
     assert_eq!(b.partition_point(|_, &x| x < 9), 6);
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 6, 7, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -702,7 +699,7 @@ fn test_partition_point() {
     assert_eq!(b.partition_point(|_, &x| x < 5), 3);
     assert_eq!(b.partition_point(|_, &x| x < 8), 5);
 
-    let b: IndexMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
+    let b: OrderMap<_, i32> = [1, 2, 4, 5, 6, 8, 9]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))
@@ -710,7 +707,7 @@ fn test_partition_point() {
     assert_eq!(b.partition_point(|_, &x| x < 7), 5);
     assert_eq!(b.partition_point(|_, &x| x < 0), 0);
 
-    let b: IndexMap<_, i32> = [1, 3, 3, 3, 7]
+    let b: OrderMap<_, i32> = [1, 3, 3, 3, 7]
         .into_iter()
         .enumerate()
         .map(|(i, x)| (i + 100, x))

@@ -1,13 +1,13 @@
 #![cfg(test)]
 
 use fnv::FnvBuildHasher;
-use indexmap::{indexmap, indexset, IndexMap, IndexSet};
+use ordermap::{ordermap, orderset, OrderMap, OrderSet};
 use serde::{Deserialize, Serialize};
 use serde_test::{assert_tokens, Token};
 
 #[test]
 fn test_serde_map() {
-    let map = indexmap! { 1 => 2, 3 => 4 };
+    let map = ordermap! { 1 => 2, 3 => 4 };
     assert_tokens(
         &map,
         &[
@@ -23,7 +23,7 @@ fn test_serde_map() {
 
 #[test]
 fn test_serde_set() {
-    let set = indexset! { 1, 2, 3, 4 };
+    let set = orderset! { 1, 2, 3, 4 };
     assert_tokens(
         &set,
         &[
@@ -39,7 +39,7 @@ fn test_serde_set() {
 
 #[test]
 fn test_serde_map_fnv_hasher() {
-    let mut map: IndexMap<i32, i32, FnvBuildHasher> = Default::default();
+    let mut map: OrderMap<i32, i32, FnvBuildHasher> = Default::default();
     map.insert(1, 2);
     map.insert(3, 4);
     assert_tokens(
@@ -57,7 +57,7 @@ fn test_serde_map_fnv_hasher() {
 
 #[test]
 fn test_serde_set_fnv_hasher() {
-    let mut set: IndexSet<i32, FnvBuildHasher> = Default::default();
+    let mut set: OrderSet<i32, FnvBuildHasher> = Default::default();
     set.extend(1..5);
     assert_tokens(
         &set,
@@ -76,21 +76,21 @@ fn test_serde_set_fnv_hasher() {
 fn test_serde_seq_map() {
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
-    struct SeqIndexMap {
-        #[serde(with = "indexmap::map::serde_seq")]
-        map: IndexMap<i32, i32>,
+    struct SeqOrderMap {
+        #[serde(with = "ordermap::map::serde_seq")]
+        map: OrderMap<i32, i32>,
     }
 
-    impl PartialEq for SeqIndexMap {
+    impl PartialEq for SeqOrderMap {
         fn eq(&self, other: &Self) -> bool {
             // explicitly compare items in order
             self.map.iter().eq(&other.map)
         }
     }
 
-    let map = indexmap! { 1 => 2, 3 => 4, -1 => -2, -3 => -4 };
+    let map = ordermap! { 1 => 2, 3 => 4, -1 => -2, -3 => -4 };
     assert_tokens(
-        &SeqIndexMap { map },
+        &SeqOrderMap { map },
         &[
             Token::Seq { len: Some(4) },
             Token::Tuple { len: 2 },

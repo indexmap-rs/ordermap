@@ -7,21 +7,22 @@
 //! The trait [`RawEntryApiV1`] and the `_v1` suffix on its methods are meant to insulate this for
 //! the future, in case later breaking changes are needed. If the standard library stabilizes its
 //! `hash_raw_entry` feature (or some replacement), matching *inherent* methods will be added to
-//! `IndexMap` without such an opt-in trait.
+//! `OrderMap` without such an opt-in trait.
 
-use super::raw::RawTableEntry;
-use super::IndexMapCore;
-use crate::{Equivalent, HashValue, IndexMap};
+use crate::{Equivalent, OrderMap};
 use core::fmt;
-use core::hash::{BuildHasher, Hash, Hasher};
-use core::marker::PhantomData;
-use core::mem;
+use core::hash::{BuildHasher, Hash};
+use indexmap::map::raw_entry_v1 as ix;
+use indexmap::map::RawEntryApiV1 as _;
+
+#[cfg(doc)]
+use alloc::vec::Vec;
 
 /// Opt-in access to the experimental raw entry API.
 ///
 /// See the [`raw_entry_v1`][self] module documentation for more information.
 pub trait RawEntryApiV1<K, V, S>: private::Sealed {
-    /// Creates a raw immutable entry builder for the [`IndexMap`].
+    /// Creates a raw immutable entry builder for the [`OrderMap`].
     ///
     /// Raw entries provide the lowest level of control for searching and
     /// manipulating a map. They must be manually initialized with a hash and
@@ -33,7 +34,7 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// * Using custom comparison logic without newtype wrappers
     ///
     /// Unless you are in such a situation, higher-level and more foolproof APIs like
-    /// [`get`][IndexMap::get] should be preferred.
+    /// [`get`][OrderMap::get] should be preferred.
     ///
     /// Immutable raw entries have very limited use; you might instead want
     /// [`raw_entry_mut_v1`][Self::raw_entry_mut_v1].
@@ -42,9 +43,9 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     ///
     /// ```
     /// use core::hash::{BuildHasher, Hash};
-    /// use indexmap::map::{IndexMap, RawEntryApiV1};
+    /// use ordermap::map::{OrderMap, RawEntryApiV1};
     ///
-    /// let mut map = IndexMap::new();
+    /// let mut map = OrderMap::new();
     /// map.extend([("a", 100), ("b", 200), ("c", 300)]);
     ///
     /// fn compute_hash<K: Hash + ?Sized, S: BuildHasher>(hash_builder: &S, key: &K) -> u64 {
@@ -72,7 +73,7 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// ```
     fn raw_entry_v1(&self) -> RawEntryBuilder<'_, K, V, S>;
 
-    /// Creates a raw entry builder for the [`IndexMap`].
+    /// Creates a raw entry builder for the [`OrderMap`].
     ///
     /// Raw entries provide the lowest level of control for searching and
     /// manipulating a map. They must be manually initialized with a hash and
@@ -87,9 +88,9 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// * Using custom comparison logic without newtype wrappers
     ///
     /// Because raw entries provide much more low-level control, it's much easier
-    /// to put the `IndexMap` into an inconsistent state which, while memory-safe,
+    /// to put the `OrderMap` into an inconsistent state which, while memory-safe,
     /// will cause the map to produce seemingly random results. Higher-level and more
-    /// foolproof APIs like [`entry`][IndexMap::entry] should be preferred when possible.
+    /// foolproof APIs like [`entry`][OrderMap::entry] should be preferred when possible.
     ///
     /// Raw entries give mutable access to the keys. This must not be used
     /// to modify how the key would compare or hash, as the map will not re-evaluate
@@ -103,10 +104,10 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     ///
     /// ```
     /// use core::hash::{BuildHasher, Hash};
-    /// use indexmap::map::{IndexMap, RawEntryApiV1};
-    /// use indexmap::map::raw_entry_v1::RawEntryMut;
+    /// use ordermap::map::{OrderMap, RawEntryApiV1};
+    /// use ordermap::map::raw_entry_v1::RawEntryMut;
     ///
-    /// let mut map = IndexMap::new();
+    /// let mut map = OrderMap::new();
     /// map.extend([("a", 100), ("b", 200), ("c", 300)]);
     ///
     /// fn compute_hash<K: Hash + ?Sized, S: BuildHasher>(hash_builder: &S, key: &K) -> u64 {
@@ -138,7 +139,7 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     ///     RawEntryMut::Vacant(_) => unreachable!(),
     ///     RawEntryMut::Occupied(view) => {
     ///         assert_eq!(view.index(), 2);
-    ///         assert_eq!(view.shift_remove_entry(), ("c", 300));
+    ///         assert_eq!(view.remove_entry(), ("c", 300));
     ///     }
     /// }
     /// assert_eq!(map.raw_entry_v1().from_key("c"), None);
@@ -172,22 +173,26 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     fn raw_entry_mut_v1(&mut self) -> RawEntryBuilderMut<'_, K, V, S>;
 }
 
-impl<K, V, S> RawEntryApiV1<K, V, S> for IndexMap<K, V, S> {
+impl<K, V, S> RawEntryApiV1<K, V, S> for OrderMap<K, V, S> {
     fn raw_entry_v1(&self) -> RawEntryBuilder<'_, K, V, S> {
-        RawEntryBuilder { map: self }
+        RawEntryBuilder {
+            inner: self.inner.raw_entry_v1(),
+        }
     }
 
     fn raw_entry_mut_v1(&mut self) -> RawEntryBuilderMut<'_, K, V, S> {
-        RawEntryBuilderMut { map: self }
+        RawEntryBuilderMut {
+            inner: self.inner.raw_entry_mut_v1(),
+        }
     }
 }
 
-/// A builder for computing where in an [`IndexMap`] a key-value pair would be stored.
+/// A builder for computing where in an [`OrderMap`] a key-value pair would be stored.
 ///
-/// This `struct` is created by the [`IndexMap::raw_entry_v1`] method, provided by the
+/// This `struct` is created by the [`OrderMap::raw_entry_v1`] method, provided by the
 /// [`RawEntryApiV1`] trait. See its documentation for more.
 pub struct RawEntryBuilder<'a, K, V, S> {
-    map: &'a IndexMap<K, V, S>,
+    inner: ix::RawEntryBuilder<'a, K, V, S>,
 }
 
 impl<K, V, S> fmt::Debug for RawEntryBuilder<'_, K, V, S> {
@@ -203,7 +208,7 @@ impl<'a, K, V, S> RawEntryBuilder<'a, K, V, S> {
         S: BuildHasher,
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        self.map.get_key_value(key)
+        self.inner.from_key(key)
     }
 
     /// Access an entry by a key and its hash.
@@ -211,9 +216,7 @@ impl<'a, K, V, S> RawEntryBuilder<'a, K, V, S> {
     where
         Q: ?Sized + Equivalent<K>,
     {
-        let hash = HashValue(hash as usize);
-        let i = self.map.core.get_index_of(hash, key)?;
-        self.map.get_index(i)
+        self.inner.from_key_hashed_nocheck(hash, key)
     }
 
     /// Access an entry by hash.
@@ -221,9 +224,7 @@ impl<'a, K, V, S> RawEntryBuilder<'a, K, V, S> {
     where
         F: FnMut(&K) -> bool,
     {
-        let map = self.map;
-        let i = self.index_from_hash(hash, is_match)?;
-        map.get_index(i)
+        self.inner.from_hash(hash, is_match)
     }
 
     /// Access an entry by hash, including its index.
@@ -231,30 +232,24 @@ impl<'a, K, V, S> RawEntryBuilder<'a, K, V, S> {
     where
         F: FnMut(&K) -> bool,
     {
-        let map = self.map;
-        let i = self.index_from_hash(hash, is_match)?;
-        let (key, value) = map.get_index(i)?;
-        Some((i, key, value))
+        self.inner.from_hash_full(hash, is_match)
     }
 
     /// Access the index of an entry by hash.
-    pub fn index_from_hash<F>(self, hash: u64, mut is_match: F) -> Option<usize>
+    pub fn index_from_hash<F>(self, hash: u64, is_match: F) -> Option<usize>
     where
         F: FnMut(&K) -> bool,
     {
-        let hash = HashValue(hash as usize);
-        let entries = &*self.map.core.entries;
-        let eq = move |&i: &usize| is_match(&entries[i].key);
-        self.map.core.indices.get(hash.get(), eq).copied()
+        self.inner.index_from_hash(hash, is_match)
     }
 }
 
-/// A builder for computing where in an [`IndexMap`] a key-value pair would be stored.
+/// A builder for computing where in an [`OrderMap`] a key-value pair would be stored.
 ///
-/// This `struct` is created by the [`IndexMap::raw_entry_mut_v1`] method, provided by the
+/// This `struct` is created by the [`OrderMap::raw_entry_mut_v1`] method, provided by the
 /// [`RawEntryApiV1`] trait. See its documentation for more.
 pub struct RawEntryBuilderMut<'a, K, V, S> {
-    map: &'a mut IndexMap<K, V, S>,
+    inner: ix::RawEntryBuilderMut<'a, K, V, S>,
 }
 
 impl<K, V, S> fmt::Debug for RawEntryBuilderMut<'_, K, V, S> {
@@ -270,8 +265,7 @@ impl<'a, K, V, S> RawEntryBuilderMut<'a, K, V, S> {
         S: BuildHasher,
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        let hash = self.map.hash(key);
-        self.from_key_hashed_nocheck(hash.get(), key)
+        RawEntryMut::new(self.inner.from_key(key))
     }
 
     /// Access an entry by a key and its hash.
@@ -279,7 +273,7 @@ impl<'a, K, V, S> RawEntryBuilderMut<'a, K, V, S> {
     where
         Q: ?Sized + Equivalent<K>,
     {
-        self.from_hash(hash, |k| Q::equivalent(key, k))
+        RawEntryMut::new(self.inner.from_key_hashed_nocheck(hash, key))
     }
 
     /// Access an entry by hash.
@@ -287,17 +281,7 @@ impl<'a, K, V, S> RawEntryBuilderMut<'a, K, V, S> {
     where
         F: FnMut(&K) -> bool,
     {
-        let hash = HashValue(hash as usize);
-        match self.map.core.raw_entry(hash, is_match) {
-            Ok(raw) => RawEntryMut::Occupied(RawOccupiedEntryMut {
-                raw,
-                hash_builder: PhantomData,
-            }),
-            Err(map) => RawEntryMut::Vacant(RawVacantEntryMut {
-                map,
-                hash_builder: &self.map.hash_builder,
-            }),
-        }
+        RawEntryMut::new(self.inner.from_hash(hash, is_match))
     }
 }
 
@@ -322,6 +306,13 @@ impl<K: fmt::Debug, V: fmt::Debug, S> fmt::Debug for RawEntryMut<'_, K, V, S> {
 }
 
 impl<'a, K, V, S> RawEntryMut<'a, K, V, S> {
+    fn new(entry: ix::RawEntryMut<'a, K, V, S>) -> Self {
+        match entry {
+            ix::RawEntryMut::Occupied(inner) => Self::Occupied(RawOccupiedEntryMut { inner }),
+            ix::RawEntryMut::Vacant(inner) => Self::Vacant(RawVacantEntryMut { inner }),
+        }
+    }
+
     /// Return the index where the key-value pair exists or may be inserted.
     #[inline]
     pub fn index(&self) -> usize {
@@ -374,11 +365,10 @@ impl<'a, K, V, S> RawEntryMut<'a, K, V, S> {
     }
 }
 
-/// A raw view into an occupied entry in an [`IndexMap`].
+/// A raw view into an occupied entry in an [`OrderMap`].
 /// It is part of the [`RawEntryMut`] enum.
 pub struct RawOccupiedEntryMut<'a, K, V, S> {
-    raw: RawTableEntry<'a, K, V>,
-    hash_builder: PhantomData<&'a S>,
+    inner: ix::RawOccupiedEntryMut<'a, K, V, S>,
 }
 
 impl<K: fmt::Debug, V: fmt::Debug, S> fmt::Debug for RawOccupiedEntryMut<'_, K, V, S> {
@@ -394,7 +384,7 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// Return the index of the key-value pair
     #[inline]
     pub fn index(&self) -> usize {
-        self.raw.index()
+        self.inner.index()
     }
 
     /// Gets a reference to the entry's key in the map.
@@ -403,7 +393,7 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// difference if the key type has any distinguishing features outside of `Hash` and `Eq`, like
     /// extra fields or the memory address of an allocation.
     pub fn key(&self) -> &K {
-        &self.raw.bucket().key
+        self.inner.key()
     }
 
     /// Gets a mutable reference to the entry's key in the map.
@@ -412,7 +402,7 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// difference if the key type has any distinguishing features outside of `Hash` and `Eq`, like
     /// extra fields or the memory address of an allocation.
     pub fn key_mut(&mut self) -> &mut K {
-        &mut self.raw.bucket_mut().key
+        self.inner.key_mut()
     }
 
     /// Converts into a mutable reference to the entry's key in the map,
@@ -422,12 +412,12 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// difference if the key type has any distinguishing features outside of `Hash` and `Eq`, like
     /// extra fields or the memory address of an allocation.
     pub fn into_key(self) -> &'a mut K {
-        &mut self.raw.into_bucket().key
+        self.inner.into_key()
     }
 
     /// Gets a reference to the entry's value in the map.
     pub fn get(&self) -> &V {
-        &self.raw.bucket().value
+        self.inner.get()
     }
 
     /// Gets a mutable reference to the entry's value in the map.
@@ -435,115 +425,93 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// If you need a reference which may outlive the destruction of the
     /// [`RawEntryMut`] value, see [`into_mut`][Self::into_mut].
     pub fn get_mut(&mut self) -> &mut V {
-        &mut self.raw.bucket_mut().value
+        self.inner.get_mut()
     }
 
     /// Converts into a mutable reference to the entry's value in the map,
     /// with a lifetime bound to the map itself.
     pub fn into_mut(self) -> &'a mut V {
-        &mut self.raw.into_bucket().value
+        self.inner.into_mut()
     }
 
     /// Gets a reference to the entry's key and value in the map.
     pub fn get_key_value(&self) -> (&K, &V) {
-        self.raw.bucket().refs()
+        self.inner.get_key_value()
     }
 
     /// Gets a reference to the entry's key and value in the map.
     pub fn get_key_value_mut(&mut self) -> (&mut K, &mut V) {
-        self.raw.bucket_mut().muts()
+        self.inner.get_key_value_mut()
     }
 
     /// Converts into a mutable reference to the entry's key and value in the map,
     /// with a lifetime bound to the map itself.
     pub fn into_key_value_mut(self) -> (&'a mut K, &'a mut V) {
-        self.raw.into_bucket().muts()
+        self.inner.into_key_value_mut()
     }
 
     /// Sets the value of the entry, and returns the entry's old value.
     pub fn insert(&mut self, value: V) -> V {
-        mem::replace(self.get_mut(), value)
+        self.inner.insert(value)
     }
 
     /// Sets the key of the entry, and returns the entry's old key.
     pub fn insert_key(&mut self, key: K) -> K {
-        mem::replace(self.key_mut(), key)
+        self.inner.insert_key(key)
     }
 
     /// Remove the key, value pair stored in the map for this entry, and return the value.
     ///
-    /// **NOTE:** This is equivalent to [`.swap_remove()`][Self::swap_remove], replacing this
-    /// entry's position with the last element, and it is deprecated in favor of calling that
-    /// explicitly. If you need to preserve the relative order of the keys in the map, use
-    /// [`.shift_remove()`][Self::shift_remove] instead.
-    #[deprecated(note = "`remove` disrupts the map order -- \
-        use `swap_remove` or `shift_remove` for explicit behavior.")]
+    /// **NOTE:** This is equivalent to indexmap's
+    /// [`RawOccupiedEntryMut::shift_remove`][ix::RawOccupiedEntryMut::shift_remove], and
+    /// like [`Vec::remove`], the pair is removed by shifting all of the
+    /// elements that follow it, preserving their relative order.
+    /// **This perturbs the index of all of those elements!**
+    ///
+    /// Computes in **O(n)** time (average).
     pub fn remove(self) -> V {
-        self.swap_remove()
+        self.inner.shift_remove()
     }
 
     /// Remove the key, value pair stored in the map for this entry, and return the value.
     ///
-    /// Like [`Vec::swap_remove`][crate::Vec::swap_remove], the pair is removed by swapping it with
+    /// Like [`Vec::swap_remove`], the pair is removed by swapping it with
     /// the last element of the map and popping it off.
     /// **This perturbs the position of what used to be the last element!**
     ///
     /// Computes in **O(1)** time (average).
     pub fn swap_remove(self) -> V {
-        self.swap_remove_entry().1
+        self.inner.swap_remove()
     }
 
-    /// Remove the key, value pair stored in the map for this entry, and return the value.
+    /// Remove and return the key, value pair stored in the map for this entry
     ///
-    /// Like [`Vec::remove`][crate::Vec::remove], the pair is removed by shifting all of the
+    /// **NOTE:** This is equivalent to indexmap's
+    /// [`RawOccupiedEntryMut::shift_remove_entry`][ix::RawOccupiedEntryMut::shift_remove_entry], and
+    /// like [`Vec::remove`], the pair is removed by shifting all of the
     /// elements that follow it, preserving their relative order.
     /// **This perturbs the index of all of those elements!**
     ///
     /// Computes in **O(n)** time (average).
-    pub fn shift_remove(self) -> V {
-        self.shift_remove_entry().1
-    }
-
-    /// Remove and return the key, value pair stored in the map for this entry
-    ///
-    /// **NOTE:** This is equivalent to [`.swap_remove_entry()`][Self::swap_remove_entry],
-    /// replacing this entry's position with the last element, and it is deprecated in favor of
-    /// calling that explicitly. If you need to preserve the relative order of the keys in the map,
-    /// use [`.shift_remove_entry()`][Self::shift_remove_entry] instead.
-    #[deprecated(note = "`remove_entry` disrupts the map order -- \
-        use `swap_remove_entry` or `shift_remove_entry` for explicit behavior.")]
     pub fn remove_entry(self) -> (K, V) {
-        self.swap_remove_entry()
+        self.inner.shift_remove_entry()
     }
 
     /// Remove and return the key, value pair stored in the map for this entry
     ///
-    /// Like [`Vec::swap_remove`][crate::Vec::swap_remove], the pair is removed by swapping it with
+    /// Like [`Vec::swap_remove`], the pair is removed by swapping it with
     /// the last element of the map and popping it off.
     /// **This perturbs the position of what used to be the last element!**
     ///
     /// Computes in **O(1)** time (average).
     pub fn swap_remove_entry(self) -> (K, V) {
-        let (map, index) = self.raw.remove_index();
-        map.swap_remove_finish(index)
-    }
-
-    /// Remove and return the key, value pair stored in the map for this entry
-    ///
-    /// Like [`Vec::remove`][crate::Vec::remove], the pair is removed by shifting all of the
-    /// elements that follow it, preserving their relative order.
-    /// **This perturbs the index of all of those elements!**
-    ///
-    /// Computes in **O(n)** time (average).
-    pub fn shift_remove_entry(self) -> (K, V) {
-        let (map, index) = self.raw.remove_index();
-        map.shift_remove_finish(index)
+        self.inner.swap_remove_entry()
     }
 
     /// Moves the position of the entry to a new index
     /// by shifting all other entries in-between.
     ///
-    /// This is equivalent to [`IndexMap::move_index`]
+    /// This is equivalent to [`OrderMap::move_index`]
     /// coming `from` the current [`.index()`][Self::index].
     ///
     /// * If `self.index() < to`, the other pairs will shift down while the targeted pair moves up.
@@ -553,29 +521,26 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     ///
     /// Computes in **O(n)** time (average).
     pub fn move_index(self, to: usize) {
-        let (map, index) = self.raw.into_inner();
-        map.move_index(index, to);
+        self.inner.move_index(to);
     }
 
     /// Swaps the position of entry with another.
     ///
-    /// This is equivalent to [`IndexMap::swap_indices`]
+    /// This is equivalent to [`OrderMap::swap_indices`]
     /// with the current [`.index()`][Self::index] as one of the two being swapped.
     ///
     /// ***Panics*** if the `other` index is out of bounds.
     ///
     /// Computes in **O(1)** time (average).
     pub fn swap_indices(self, other: usize) {
-        let (map, index) = self.raw.into_inner();
-        map.swap_indices(index, other)
+        self.inner.swap_indices(other);
     }
 }
 
-/// A view into a vacant raw entry in an [`IndexMap`].
+/// A view into a vacant raw entry in an [`OrderMap`].
 /// It is part of the [`RawEntryMut`] enum.
 pub struct RawVacantEntryMut<'a, K, V, S> {
-    map: &'a mut IndexMapCore<K, V>,
-    hash_builder: &'a S,
+    inner: ix::RawVacantEntryMut<'a, K, V, S>,
 }
 
 impl<K, V, S> fmt::Debug for RawVacantEntryMut<'_, K, V, S> {
@@ -587,7 +552,7 @@ impl<K, V, S> fmt::Debug for RawVacantEntryMut<'_, K, V, S> {
 impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
     /// Return the index where a key-value pair may be inserted.
     pub fn index(&self) -> usize {
-        self.map.indices.len()
+        self.inner.index()
     }
 
     /// Inserts the given key and value into the map,
@@ -597,17 +562,13 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
         K: Hash,
         S: BuildHasher,
     {
-        let mut h = self.hash_builder.build_hasher();
-        key.hash(&mut h);
-        self.insert_hashed_nocheck(h.finish(), key, value)
+        self.inner.insert(key, value)
     }
 
     /// Inserts the given key and value into the map with the provided hash,
     /// and returns mutable references to them.
     pub fn insert_hashed_nocheck(self, hash: u64, key: K, value: V) -> (&'a mut K, &'a mut V) {
-        let hash = HashValue(hash as usize);
-        let i = self.map.insert_unique(hash, key, value);
-        self.map.entries[i].muts()
+        self.inner.insert_hashed_nocheck(hash, key, value)
     }
 
     /// Inserts the given key and value into the map at the given index,
@@ -621,9 +582,7 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
         K: Hash,
         S: BuildHasher,
     {
-        let mut h = self.hash_builder.build_hasher();
-        key.hash(&mut h);
-        self.shift_insert_hashed_nocheck(index, h.finish(), key, value)
+        self.inner.shift_insert(index, key, value)
     }
 
     /// Inserts the given key and value into the map with the provided hash
@@ -639,14 +598,13 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
         key: K,
         value: V,
     ) -> (&'a mut K, &'a mut V) {
-        let hash = HashValue(hash as usize);
-        self.map.shift_insert_unique(index, hash, key, value);
-        self.map.entries[index].muts()
+        self.inner
+            .shift_insert_hashed_nocheck(index, hash, key, value)
     }
 }
 
 mod private {
     pub trait Sealed {}
 
-    impl<K, V, S> Sealed for super::IndexMap<K, V, S> {}
+    impl<K, V, S> Sealed for super::OrderMap<K, V, S> {}
 }

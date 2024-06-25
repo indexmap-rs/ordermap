@@ -1,8 +1,8 @@
+use super::{Equivalent, OrderMap};
 use core::hash::{BuildHasher, Hash};
+use indexmap::map::MutableKeys as _;
 
-use super::{Bucket, Entries, Equivalent, IndexMap};
-
-/// Opt-in mutable access to [`IndexMap`] keys.
+/// Opt-in mutable access to [`OrderMap`] keys.
 ///
 /// These methods expose `&mut K`, mutable references to the key as it is stored
 /// in the map.
@@ -13,7 +13,7 @@ use super::{Bucket, Entries, Equivalent, IndexMap};
 /// This is sound (memory safe) but a logical error hazard (just like
 /// implementing `PartialEq`, `Eq`, or `Hash` incorrectly would be).
 ///
-/// `use` this trait to enable its methods for `IndexMap`.
+/// `use` this trait to enable its methods for `OrderMap`.
 ///
 /// This trait is sealed and cannot be implemented for types outside this crate.
 pub trait MutableKeys: private::Sealed {
@@ -46,10 +46,10 @@ pub trait MutableKeys: private::Sealed {
         F: FnMut(&mut Self::Key, &mut Self::Value) -> bool;
 }
 
-/// Opt-in mutable access to [`IndexMap`] keys.
+/// Opt-in mutable access to [`OrderMap`] keys.
 ///
 /// See [`MutableKeys`] for more information.
-impl<K, V, S> MutableKeys for IndexMap<K, V, S>
+impl<K, V, S> MutableKeys for OrderMap<K, V, S>
 where
     S: BuildHasher,
 {
@@ -60,28 +60,23 @@ where
     where
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        if let Some(i) = self.get_index_of(key) {
-            let entry = &mut self.as_entries_mut()[i];
-            Some((i, &mut entry.key, &mut entry.value))
-        } else {
-            None
-        }
+        self.inner.get_full_mut2(key)
     }
 
     fn get_index_mut2(&mut self, index: usize) -> Option<(&mut K, &mut V)> {
-        self.as_entries_mut().get_mut(index).map(Bucket::muts)
+        self.inner.get_index_mut2(index)
     }
 
     fn retain2<F>(&mut self, keep: F)
     where
         F: FnMut(&mut K, &mut V) -> bool,
     {
-        self.core.retain_in_order(keep);
+        self.inner.retain2(keep);
     }
 }
 
 mod private {
     pub trait Sealed {}
 
-    impl<K, V, S> Sealed for super::IndexMap<K, V, S> {}
+    impl<K, V, S> Sealed for super::OrderMap<K, V, S> {}
 }
