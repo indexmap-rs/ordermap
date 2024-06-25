@@ -9,7 +9,7 @@ A pure-Rust hash table which preserves (in a limited sense) insertion order.
 
 This crate implements compact map and set data-structures,
 where the iteration order of the keys is independent from their hash or
-value. It preserves insertion order (except after removals), and it
+value. It preserves insertion order in most mutating operations, and it
 allows lookup of entries by either hash table key or numerical index.
 
 Note: this crate was originally what became the `indexmap` crate, and
