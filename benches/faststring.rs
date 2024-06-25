@@ -4,7 +4,7 @@ extern crate test;
 
 use test::Bencher;
 
-use indexmap::IndexMap;
+use ordermap::OrderMap;
 
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ use std::ops::Deref;
 
 /// Use a consistently seeded Rng for benchmark stability
 fn small_rng() -> SmallRng {
-    let seed = u64::from_le_bytes(*b"indexmap");
+    let seed = u64::from_le_bytes(*b"ordermap");
     SmallRng::seed_from_u64(seed)
 }
 
@@ -97,10 +97,10 @@ fn insert_hashmap_string_oneshot_10_000(b: &mut Bencher) {
 }
 
 #[bench]
-fn insert_indexmap_string_10_000(b: &mut Bencher) {
+fn insert_ordermap_string_10_000(b: &mut Bencher) {
     let c = 10_000;
     b.iter(|| {
-        let mut map = IndexMap::with_capacity(c);
+        let mut map = OrderMap::with_capacity(c);
         for x in 0..c {
             map.insert(x.to_string(), ());
         }
@@ -147,9 +147,9 @@ fn lookup_hashmap_10_000_exist_string_oneshot(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_indexmap_10_000_exist_string(b: &mut Bencher) {
+fn lookup_ordermap_10_000_exist_string(b: &mut Bencher) {
     let c = 10_000;
-    let mut map = IndexMap::with_capacity(c);
+    let mut map = OrderMap::with_capacity(c);
     let keys = shuffled_keys(0..c);
     for &key in &keys {
         map.insert(key.to_string(), 1);
@@ -165,9 +165,9 @@ fn lookup_indexmap_10_000_exist_string(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_indexmap_10_000_exist_string_oneshot(b: &mut Bencher) {
+fn lookup_ordermap_10_000_exist_string_oneshot(b: &mut Bencher) {
     let c = 10_000;
-    let mut map = IndexMap::with_capacity(c);
+    let mut map = OrderMap::with_capacity(c);
     let keys = shuffled_keys(0..c);
     for &key in &keys {
         map.insert(OneShot(key.to_string()), 1);
