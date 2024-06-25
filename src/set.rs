@@ -1,25 +1,43 @@
-//! A hash set implemented using `OrderMap`
-#![allow(deprecated)]
+//! A hash set implemented using [`IndexMap`]
 
-use std::cmp::Ordering;
+mod iter;
+mod mutable;
+mod slice;
+
+#[cfg(test)]
+mod tests;
+
+pub use self::iter::{
+    Difference, Drain, Intersection, IntoIter, Iter, Splice, SymmetricDifference, Union,
+};
+pub use self::mutable::MutableValues;
+pub use self::slice::Slice;
+
+#[cfg(feature = "rayon")]
+pub use crate::rayon::set as rayon;
+use crate::TryReserveError;
+
+#[cfg(feature = "std")]
 use std::collections::hash_map::RandomState;
-use std::fmt;
-use std::iter::{FromIterator, Chain};
-use std::hash::{Hash, BuildHasher};
-use std::ops::RangeFull;
-use std::ops::{BitAnd, BitOr, BitXor, Sub};
-use std::slice;
-use std::vec;
 
-use super::{OrderMap, Equivalent};
+use crate::util::try_simplify_range;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use core::fmt;
+use core::hash::{BuildHasher, Hash};
+use core::ops::{BitAnd, BitOr, BitXor, Index, RangeBounds, Sub};
+
+use super::{Entries, Equivalent, IndexMap};
 
 type Bucket<T> = super::Bucket<T, ()>;
 
 /// A hash set where the iteration order of the values is independent of their
 /// hash values.
 ///
-/// The interface is closely compatible with the standard `HashSet`, but also
-/// has additional features.
+/// The interface is closely compatible with the standard
+/// [`HashSet`][std::collections::HashSet],
+/// but also has additional features.
 ///
 /// # Order
 ///
@@ -30,11 +48,12 @@ type Bucket<T> = super::Bucket<T, ()>;
 /// already present.
 ///
 /// All iterators traverse the set *in order*.  Set operation iterators like
-/// `union` produce a concatenated order, as do their matching "bitwise"
+/// [`IndexSet::union`] produce a concatenated order, as do their matching "bitwise"
 /// operators.  See their documentation for specifics.
 ///
 /// The insertion order is preserved, with **notable exceptions** like the
-/// `.remove()` or `.swap_remove()` methods. Methods such as `.sort_by()` of
+/// [`.remove()`][Self::remove] or [`.swap_remove()`][Self::swap_remove] methods.
+/// Methods such as [`.sort_by()`][Self::sort_by] of
 /// course result in a new order, depending on the sorting order.
 ///
 /// # Indices
@@ -43,44 +62,99 @@ type Bucket<T> = super::Bucket<T, ()>;
 /// `0..self.len()`. For example, the method `.get_full` looks up the index for
 /// a value, and the method `.get_index` looks up the value by index.
 ///
+/// # Complexity
+///
+/// Internally, `IndexSet<T, S>` just holds an [`IndexMap<T, (), S>`](IndexMap). Thus the complexity
+/// of the two are the same for most methods.
+///
 /// # Examples
 ///
 /// ```
-/// use ordermap::OrderSet;
+/// use indexmap::IndexSet;
 ///
 /// // Collects which letters appear in a sentence.
-/// let letters: OrderSet<_> = "a short treatise on fungi".chars().collect();
-/// 
+/// let letters: IndexSet<_> = "a short treatise on fungi".chars().collect();
+///
 /// assert!(letters.contains(&'s'));
 /// assert!(letters.contains(&'t'));
 /// assert!(letters.contains(&'u'));
 /// assert!(!letters.contains(&'y'));
 /// ```
-#[derive(Clone)]
-#[deprecated(note = "the crate ordermap has been renamed with no change in \
-              functionality to indexmap; please update your dependencies")]
-pub struct OrderSet<T, S = RandomState> {
-    map: OrderMap<T, (), S>,
+#[cfg(feature = "std")]
+pub struct IndexSet<T, S = RandomState> {
+    pub(crate) map: IndexMap<T, (), S>,
+}
+#[cfg(not(feature = "std"))]
+pub struct IndexSet<T, S> {
+    pub(crate) map: IndexMap<T, (), S>,
 }
 
-impl<T, S> fmt::Debug for OrderSet<T, S>
-    where T: fmt::Debug + Hash + Eq,
-          S: BuildHasher,
+impl<T, S> Clone for IndexSet<T, S>
+where
+    T: Clone,
+    S: Clone,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(not(feature = "test_debug")) {
-            f.debug_set().entries(self.iter()).finish()
-        } else {
-            // Let the inner `OrderMap` print all of its details
-            f.debug_struct("OrderSet").field("map", &self.map).finish()
+    fn clone(&self) -> Self {
+        IndexSet {
+            map: self.map.clone(),
         }
+    }
+
+    fn clone_from(&mut self, other: &Self) {
+        self.map.clone_from(&other.map);
     }
 }
 
-impl<T> OrderSet<T> {
+impl<T, S> Entries for IndexSet<T, S> {
+    type Entry = Bucket<T>;
+
+    #[inline]
+    fn into_entries(self) -> Vec<Self::Entry> {
+        self.map.into_entries()
+    }
+
+    #[inline]
+    fn as_entries(&self) -> &[Self::Entry] {
+        self.map.as_entries()
+    }
+
+    #[inline]
+    fn as_entries_mut(&mut self) -> &mut [Self::Entry] {
+        self.map.as_entries_mut()
+    }
+
+    fn with_entries<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut [Self::Entry]),
+    {
+        self.map.with_entries(f);
+    }
+}
+
+impl<T, S> fmt::Debug for IndexSet<T, S>
+where
+    T: fmt::Debug,
+{
+    #[cfg(not(feature = "test_debug"))]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+
+    #[cfg(feature = "test_debug")]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Let the inner `IndexMap` print all of its details
+        f.debug_struct("IndexSet").field("map", &self.map).finish()
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl<T> IndexSet<T> {
     /// Create a new set. (Does not allocate.)
     pub fn new() -> Self {
-        OrderSet { map: OrderMap::new() }
+        IndexSet {
+            map: IndexMap::new(),
+        }
     }
 
     /// Create a new set with capacity for `n` elements.
@@ -88,19 +162,46 @@ impl<T> OrderSet<T> {
     ///
     /// Computes in **O(n)** time.
     pub fn with_capacity(n: usize) -> Self {
-        OrderSet { map: OrderMap::with_capacity(n) }
+        IndexSet {
+            map: IndexMap::with_capacity(n),
+        }
     }
 }
 
-impl<T, S> OrderSet<T, S> {
+impl<T, S> IndexSet<T, S> {
     /// Create a new set with capacity for `n` elements.
     /// (Does not allocate if `n` is zero.)
     ///
     /// Computes in **O(n)** time.
-    pub fn with_capacity_and_hasher(n: usize, hash_builder: S) -> Self
-        where S: BuildHasher
-    {
-        OrderSet { map: OrderMap::with_capacity_and_hasher(n, hash_builder) }
+    pub fn with_capacity_and_hasher(n: usize, hash_builder: S) -> Self {
+        IndexSet {
+            map: IndexMap::with_capacity_and_hasher(n, hash_builder),
+        }
+    }
+
+    /// Create a new set with `hash_builder`.
+    ///
+    /// This function is `const`, so it
+    /// can be called in `static` contexts.
+    pub const fn with_hasher(hash_builder: S) -> Self {
+        IndexSet {
+            map: IndexMap::with_hasher(hash_builder),
+        }
+    }
+
+    /// Return the number of elements the set can hold without reallocating.
+    ///
+    /// This number is a lower bound; the set might be able to hold more,
+    /// but is guaranteed to be able to hold at least this many.
+    ///
+    /// Computes in **O(1)** time.
+    pub fn capacity(&self) -> usize {
+        self.map.capacity()
+    }
+
+    /// Return a reference to the set's `BuildHasher`.
+    pub fn hasher(&self) -> &S {
+        self.map.hasher()
     }
 
     /// Return the number of elements in the set.
@@ -117,30 +218,11 @@ impl<T, S> OrderSet<T, S> {
         self.map.is_empty()
     }
 
-    /// Create a new set with `hash_builder`
-    pub fn with_hasher(hash_builder: S) -> Self
-        where S: BuildHasher
-    {
-        OrderSet { map: OrderMap::with_hasher(hash_builder) }
+    /// Return an iterator over the values of the set, in their order
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter::new(self.as_entries())
     }
 
-    /// Return a reference to the set's `BuildHasher`.
-    pub fn hasher(&self) -> &S
-        where S: BuildHasher
-    {
-        self.map.hasher()
-    }
-
-    /// Computes in **O(1)** time.
-    pub fn capacity(&self) -> usize {
-        self.map.capacity()
-    }
-}
-
-impl<T, S> OrderSet<T, S>
-    where T: Hash + Eq,
-          S: BuildHasher,
-{
     /// Remove all elements in the set, while preserving its capacity.
     ///
     /// Computes in **O(n)** time.
@@ -148,11 +230,107 @@ impl<T, S> OrderSet<T, S>
         self.map.clear();
     }
 
-    /// FIXME Not implemented fully yet
+    /// Shortens the set, keeping the first `len` elements and dropping the rest.
+    ///
+    /// If `len` is greater than the set's current length, this has no effect.
+    pub fn truncate(&mut self, len: usize) {
+        self.map.truncate(len);
+    }
+
+    /// Clears the `IndexSet` in the given index range, returning those values
+    /// as a drain iterator.
+    ///
+    /// The range may be any type that implements [`RangeBounds<usize>`],
+    /// including all of the `std::ops::Range*` types, or even a tuple pair of
+    /// `Bound` start and end values. To drain the set entirely, use `RangeFull`
+    /// like `set.drain(..)`.
+    ///
+    /// This shifts down all entries following the drained range to fill the
+    /// gap, and keeps the allocated memory for reuse.
+    ///
+    /// ***Panics*** if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the set.
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
+    where
+        R: RangeBounds<usize>,
+    {
+        Drain::new(self.map.core.drain(range))
+    }
+
+    /// Splits the collection into two at the given index.
+    ///
+    /// Returns a newly allocated set containing the elements in the range
+    /// `[at, len)`. After the call, the original set will be left containing
+    /// the elements `[0, at)` with its previous capacity unchanged.
+    ///
+    /// ***Panics*** if `at > len`.
+    pub fn split_off(&mut self, at: usize) -> Self
+    where
+        S: Clone,
+    {
+        Self {
+            map: self.map.split_off(at),
+        }
+    }
+
+    /// Reserve capacity for `additional` more values.
+    ///
+    /// Computes in **O(n)** time.
     pub fn reserve(&mut self, additional: usize) {
         self.map.reserve(additional);
     }
 
+    /// Reserve capacity for `additional` more values, without over-allocating.
+    ///
+    /// Unlike `reserve`, this does not deliberately over-allocate the entry capacity to avoid
+    /// frequent re-allocations. However, the underlying data structures may still have internal
+    /// capacity requirements, and the allocator itself may give more space than requested, so this
+    /// cannot be relied upon to be precisely minimal.
+    ///
+    /// Computes in **O(n)** time.
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.map.reserve_exact(additional);
+    }
+
+    /// Try to reserve capacity for `additional` more values.
+    ///
+    /// Computes in **O(n)** time.
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.map.try_reserve(additional)
+    }
+
+    /// Try to reserve capacity for `additional` more values, without over-allocating.
+    ///
+    /// Unlike `try_reserve`, this does not deliberately over-allocate the entry capacity to avoid
+    /// frequent re-allocations. However, the underlying data structures may still have internal
+    /// capacity requirements, and the allocator itself may give more space than requested, so this
+    /// cannot be relied upon to be precisely minimal.
+    ///
+    /// Computes in **O(n)** time.
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
+        self.map.try_reserve_exact(additional)
+    }
+
+    /// Shrink the capacity of the set as much as possible.
+    ///
+    /// Computes in **O(n)** time.
+    pub fn shrink_to_fit(&mut self) {
+        self.map.shrink_to_fit();
+    }
+
+    /// Shrink the capacity of the set with a lower limit.
+    ///
+    /// Computes in **O(n)** time.
+    pub fn shrink_to(&mut self, min_capacity: usize) {
+        self.map.shrink_to(min_capacity);
+    }
+}
+
+impl<T, S> IndexSet<T, S>
+where
+    T: Hash + Eq,
+    S: BuildHasher,
+{
     /// Insert the value into the set.
     ///
     /// If an equivalent item already exists in the set, it returns
@@ -165,23 +343,90 @@ impl<T, S> OrderSet<T, S>
         self.map.insert(value, ()).is_none()
     }
 
-    /// Return an iterator over the values of the set, in their order
-    pub fn iter(&self) -> Iter<T> {
-        Iter {
-            iter: self.map.keys().iter
+    /// Insert the value into the set, and get its index.
+    ///
+    /// If an equivalent item already exists in the set, it returns
+    /// the index of the existing item and `false`, leaving the
+    /// original value in the set and without altering its insertion
+    /// order. Otherwise, it inserts the new item and returns the index
+    /// of the inserted item and `true`.
+    ///
+    /// Computes in **O(1)** time (amortized average).
+    pub fn insert_full(&mut self, value: T) -> (usize, bool) {
+        let (index, existing) = self.map.insert_full(value, ());
+        (index, existing.is_none())
+    }
+
+    /// Insert the value into the set at its ordered position among sorted values.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search`][Self::binary_search], and if needed calling
+    /// [`shift_insert`][Self::shift_insert] for a new value.
+    ///
+    /// If the sorted item is found in the set, it returns the index of that
+    /// existing item and `false`, without any change. Otherwise, it inserts the
+    /// new item and returns its sorted index and `true`.
+    ///
+    /// If the existing items are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the value
+    /// is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average). Instead of repeating calls to
+    /// `insert_sorted`, it may be faster to call batched [`insert`][Self::insert]
+    /// or [`extend`][Self::extend] and only call [`sort`][Self::sort] or
+    /// [`sort_unstable`][Self::sort_unstable] once.
+    pub fn insert_sorted(&mut self, value: T) -> (usize, bool)
+    where
+        T: Ord,
+    {
+        let (index, existing) = self.map.insert_sorted(value, ());
+        (index, existing.is_none())
+    }
+
+    /// Insert the value into the set at the given index.
+    ///
+    /// If an equivalent item already exists in the set, it returns
+    /// `false` leaving the original value in the set, but moving it to
+    /// the new position in the set. Otherwise, it inserts the new
+    /// item at the given index and returns `true`.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn shift_insert(&mut self, index: usize, value: T) -> bool {
+        self.map.shift_insert(index, value, ()).is_none()
+    }
+
+    /// Adds a value to the set, replacing the existing value, if any, that is
+    /// equal to the given one, without altering its insertion order. Returns
+    /// the replaced value.
+    ///
+    /// Computes in **O(1)** time (average).
+    pub fn replace(&mut self, value: T) -> Option<T> {
+        self.replace_full(value).1
+    }
+
+    /// Adds a value to the set, replacing the existing value, if any, that is
+    /// equal to the given one, without altering its insertion order. Returns
+    /// the index of the item and its replaced value.
+    ///
+    /// Computes in **O(1)** time (average).
+    pub fn replace_full(&mut self, value: T) -> (usize, Option<T>) {
+        let hash = self.map.hash(&value);
+        match self.map.core.replace_full(hash, value, ()) {
+            (i, Some((replaced, ()))) => (i, Some(replaced)),
+            (i, None) => (i, None),
         }
     }
 
     /// Return an iterator over the values that are in `self` but not `other`.
     ///
     /// Values are produced in the same order that they appear in `self`.
-    pub fn difference<'a, S2>(&'a self, other: &'a OrderSet<T, S2>) -> Difference<'a, T, S2>
-        where S2: BuildHasher
+    pub fn difference<'a, S2>(&'a self, other: &'a IndexSet<T, S2>) -> Difference<'a, T, S2>
+    where
+        S2: BuildHasher,
     {
-        Difference {
-            iter: self.iter(),
-            other: other,
-        }
+        Difference::new(self, other)
     }
 
     /// Return an iterator over the values that are in `self` or `other`,
@@ -189,44 +434,85 @@ impl<T, S> OrderSet<T, S>
     ///
     /// Values from `self` are produced in their original order, followed by
     /// values from `other` in their original order.
-    pub fn symmetric_difference<'a, S2>(&'a self, other: &'a OrderSet<T, S2>)
-        -> SymmetricDifference<'a, T, S, S2>
-        where S2: BuildHasher
+    pub fn symmetric_difference<'a, S2>(
+        &'a self,
+        other: &'a IndexSet<T, S2>,
+    ) -> SymmetricDifference<'a, T, S, S2>
+    where
+        S2: BuildHasher,
     {
-        SymmetricDifference {
-            iter: self.difference(other).chain(other.difference(self)),
-        }
+        SymmetricDifference::new(self, other)
     }
 
     /// Return an iterator over the values that are in both `self` and `other`.
     ///
     /// Values are produced in the same order that they appear in `self`.
-    pub fn intersection<'a, S2>(&'a self, other: &'a OrderSet<T, S2>) -> Intersection<'a, T, S2>
-        where S2: BuildHasher
+    pub fn intersection<'a, S2>(&'a self, other: &'a IndexSet<T, S2>) -> Intersection<'a, T, S2>
+    where
+        S2: BuildHasher,
     {
-        Intersection {
-            iter: self.iter(),
-            other: other,
-        }
+        Intersection::new(self, other)
     }
 
     /// Return an iterator over all values that are in `self` or `other`.
     ///
     /// Values from `self` are produced in their original order, followed by
     /// values that are unique to `other` in their original order.
-    pub fn union<'a, S2>(&'a self, other: &'a OrderSet<T, S2>) -> Union<'a, T, S>
-        where S2: BuildHasher
+    pub fn union<'a, S2>(&'a self, other: &'a IndexSet<T, S2>) -> Union<'a, T, S>
+    where
+        S2: BuildHasher,
     {
-        Union {
-            iter: self.iter().chain(other.difference(self)),
-        }
+        Union::new(self, other)
     }
 
+    /// Creates a splicing iterator that replaces the specified range in the set
+    /// with the given `replace_with` iterator and yields the removed items.
+    /// `replace_with` does not need to be the same length as `range`.
+    ///
+    /// The `range` is removed even if the iterator is not consumed until the
+    /// end. It is unspecified how many elements are removed from the set if the
+    /// `Splice` value is leaked.
+    ///
+    /// The input iterator `replace_with` is only consumed when the `Splice`
+    /// value is dropped. If a value from the iterator matches an existing entry
+    /// in the set (outside of `range`), then the original will be unchanged.
+    /// Otherwise, the new value will be inserted in the replaced `range`.
+    ///
+    /// ***Panics*** if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use indexmap::IndexSet;
+    ///
+    /// let mut set = IndexSet::from([0, 1, 2, 3, 4]);
+    /// let new = [5, 4, 3, 2, 1];
+    /// let removed: Vec<_> = set.splice(2..4, new).collect();
+    ///
+    /// // 1 and 4 kept their positions, while 5, 3, and 2 were newly inserted.
+    /// assert!(set.into_iter().eq([0, 1, 5, 3, 2, 4]));
+    /// assert_eq!(removed, &[2, 3]);
+    /// ```
+    pub fn splice<R, I>(&mut self, range: R, replace_with: I) -> Splice<'_, I::IntoIter, T, S>
+    where
+        R: RangeBounds<usize>,
+        I: IntoIterator<Item = T>,
+    {
+        Splice::new(self, range, replace_with.into_iter())
+    }
+}
+
+impl<T, S> IndexSet<T, S>
+where
+    S: BuildHasher,
+{
     /// Return `true` if an equivalent to `value` exists in the set.
     ///
     /// Computes in **O(1)** time (average).
-    pub fn contains<Q: ?Sized>(&self, value: &Q) -> bool
-        where Q: Hash + Equivalent<T>,
+    pub fn contains<Q>(&self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.map.contains_key(value)
     }
@@ -235,62 +521,90 @@ impl<T, S> OrderSet<T, S>
     /// else `None`.
     ///
     /// Computes in **O(1)** time (average).
-    pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<&T>
-        where Q: Hash + Equivalent<T>,
+    pub fn get<Q>(&self, value: &Q) -> Option<&T>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
-        self.map.get_full(value).map(|(_, x, &())| x)
+        self.map.get_key_value(value).map(|(x, &())| x)
     }
 
     /// Return item index and value
-    pub fn get_full<Q: ?Sized>(&self, value: &Q) -> Option<(usize, &T)>
-        where Q: Hash + Equivalent<T>,
+    pub fn get_full<Q>(&self, value: &Q) -> Option<(usize, &T)>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.map.get_full(value).map(|(i, x, &())| (i, x))
     }
 
-    /// Adds a value to the set, replacing the existing value, if any, that is
-    /// equal to the given one. Returns the replaced value.
+    /// Return item index, if it exists in the set
     ///
     /// Computes in **O(1)** time (average).
-    pub fn replace(&mut self, value: T) -> Option<T>
+    pub fn get_index_of<Q>(&self, value: &Q) -> Option<usize>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
-        use super::map::Entry::*;
-
-        match self.map.entry(value) {
-            Vacant(e) => { e.insert(()); None },
-            Occupied(e) => Some(e.replace_key()),
-        }
+        self.map.get_index_of(value)
     }
 
-    /// FIXME Same as .swap_remove
+    /// Remove the value from the set, and return `true` if it was present.
     ///
-    /// Computes in **O(1)** time (average).
-    pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
-        where Q: Hash + Equivalent<T>,
+    /// **NOTE:** This is equivalent to [`.swap_remove(value)`][Self::swap_remove], replacing this
+    /// value's position with the last element, and it is deprecated in favor of calling that
+    /// explicitly. If you need to preserve the relative order of the values in the set, use
+    /// [`.shift_remove(value)`][Self::shift_remove] instead.
+    #[deprecated(note = "`remove` disrupts the set order -- \
+        use `swap_remove` or `shift_remove` for explicit behavior.")]
+    pub fn remove<Q>(&mut self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.swap_remove(value)
     }
 
     /// Remove the value from the set, and return `true` if it was present.
     ///
-    /// Like `Vec::swap_remove`, the value is removed by swapping it with the
+    /// Like [`Vec::swap_remove`], the value is removed by swapping it with the
     /// last element of the set and popping it off. **This perturbs
-    /// the postion of what used to be the last element!**
+    /// the position of what used to be the last element!**
     ///
     /// Return `false` if `value` was not in the set.
     ///
     /// Computes in **O(1)** time (average).
-    pub fn swap_remove<Q: ?Sized>(&mut self, value: &Q) -> bool
-        where Q: Hash + Equivalent<T>,
+    pub fn swap_remove<Q>(&mut self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.map.swap_remove(value).is_some()
     }
 
-    /// FIXME Same as .swap_take
+    /// Remove the value from the set, and return `true` if it was present.
     ///
-    /// Computes in **O(1)** time (average).
-    pub fn take<Q: ?Sized>(&mut self, value: &Q) -> Option<T>
-        where Q: Hash + Equivalent<T>,
+    /// Like [`Vec::remove`], the value is removed by shifting all of the
+    /// elements that follow it, preserving their relative order.
+    /// **This perturbs the index of all of those elements!**
+    ///
+    /// Return `false` if `value` was not in the set.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn shift_remove<Q>(&mut self, value: &Q) -> bool
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
+    {
+        self.map.shift_remove(value).is_some()
+    }
+
+    /// Removes and returns the value in the set, if any, that is equal to the
+    /// given one.
+    ///
+    /// **NOTE:** This is equivalent to [`.swap_take(value)`][Self::swap_take], replacing this
+    /// value's position with the last element, and it is deprecated in favor of calling that
+    /// explicitly. If you need to preserve the relative order of the values in the set, use
+    /// [`.shift_take(value)`][Self::shift_take] instead.
+    #[deprecated(note = "`take` disrupts the set order -- \
+        use `swap_take` or `shift_take` for explicit behavior.")]
+    pub fn take<Q>(&mut self, value: &Q) -> Option<T>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.swap_take(value)
     }
@@ -298,33 +612,70 @@ impl<T, S> OrderSet<T, S>
     /// Removes and returns the value in the set, if any, that is equal to the
     /// given one.
     ///
-    /// Like `Vec::swap_remove`, the value is removed by swapping it with the
+    /// Like [`Vec::swap_remove`], the value is removed by swapping it with the
     /// last element of the set and popping it off. **This perturbs
-    /// the postion of what used to be the last element!**
+    /// the position of what used to be the last element!**
     ///
     /// Return `None` if `value` was not in the set.
     ///
     /// Computes in **O(1)** time (average).
-    pub fn swap_take<Q: ?Sized>(&mut self, value: &Q) -> Option<T>
-        where Q: Hash + Equivalent<T>,
+    pub fn swap_take<Q>(&mut self, value: &Q) -> Option<T>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
-        self.map.swap_remove_full(value).map(|(_, x, ())| x)
+        self.map.swap_remove_entry(value).map(|(x, ())| x)
+    }
+
+    /// Removes and returns the value in the set, if any, that is equal to the
+    /// given one.
+    ///
+    /// Like [`Vec::remove`], the value is removed by shifting all of the
+    /// elements that follow it, preserving their relative order.
+    /// **This perturbs the index of all of those elements!**
+    ///
+    /// Return `None` if `value` was not in the set.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn shift_take<Q>(&mut self, value: &Q) -> Option<T>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
+    {
+        self.map.shift_remove_entry(value).map(|(x, ())| x)
     }
 
     /// Remove the value from the set return it and the index it had.
     ///
-    /// Like `Vec::swap_remove`, the value is removed by swapping it with the
+    /// Like [`Vec::swap_remove`], the value is removed by swapping it with the
     /// last element of the set and popping it off. **This perturbs
-    /// the postion of what used to be the last element!**
+    /// the position of what used to be the last element!**
     ///
     /// Return `None` if `value` was not in the set.
-    pub fn swap_remove_full<Q: ?Sized>(&mut self, value: &Q) -> Option<(usize, T)>
-        where Q: Hash + Equivalent<T>,
+    pub fn swap_remove_full<Q>(&mut self, value: &Q) -> Option<(usize, T)>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.map.swap_remove_full(value).map(|(i, x, ())| (i, x))
     }
 
+    /// Remove the value from the set return it and the index it had.
+    ///
+    /// Like [`Vec::remove`], the value is removed by shifting all of the
+    /// elements that follow it, preserving their relative order.
+    /// **This perturbs the index of all of those elements!**
+    ///
+    /// Return `None` if `value` was not in the set.
+    pub fn shift_remove_full<Q>(&mut self, value: &Q) -> Option<(usize, T)>
+    where
+        Q: ?Sized + Hash + Equivalent<T>,
+    {
+        self.map.shift_remove_full(value).map(|(i, x, ())| (i, x))
+    }
+}
+
+impl<T, S> IndexSet<T, S> {
     /// Remove the last value
+    ///
+    /// This preserves the order of the remaining elements.
     ///
     /// Computes in **O(1)** time (average).
     pub fn pop(&mut self) -> Option<T> {
@@ -339,219 +690,393 @@ impl<T, S> OrderSet<T, S>
     ///
     /// Computes in **O(n)** time (average).
     pub fn retain<F>(&mut self, mut keep: F)
-        where F: FnMut(&T) -> bool,
+    where
+        F: FnMut(&T) -> bool,
     {
         self.map.retain(move |x, &mut ()| keep(x))
     }
 
     /// Sort the set’s values by their default ordering.
     ///
-    /// See `sort_by` for details.
+    /// This is a stable sort -- but equivalent values should not normally coexist in
+    /// a set at all, so [`sort_unstable`][Self::sort_unstable] is preferred
+    /// because it is generally faster and doesn't allocate auxiliary memory.
+    ///
+    /// See [`sort_by`](Self::sort_by) for details.
     pub fn sort(&mut self)
-        where T: Ord,
+    where
+        T: Ord,
     {
         self.map.sort_keys()
     }
 
-    /// Sort the set’s values in place using the comparison function `compare`.
+    /// Sort the set’s values in place using the comparison function `cmp`.
     ///
     /// Computes in **O(n log n)** time and **O(n)** space. The sort is stable.
-    pub fn sort_by<F>(&mut self, mut compare: F)
-        where F: FnMut(&T, &T) -> Ordering,
+    pub fn sort_by<F>(&mut self, mut cmp: F)
+    where
+        F: FnMut(&T, &T) -> Ordering,
     {
-        self.map.sort_by(move |a, _, b, _| compare(a, b));
+        self.map.sort_by(move |a, _, b, _| cmp(a, b));
     }
 
-    /// Sort the values of the set and return a by value iterator of
+    /// Sort the values of the set and return a by-value iterator of
     /// the values with the result.
     ///
     /// The sort is stable.
     pub fn sorted_by<F>(self, mut cmp: F) -> IntoIter<T>
-        where F: FnMut(&T, &T) -> Ordering
+    where
+        F: FnMut(&T, &T) -> Ordering,
     {
-        IntoIter {
-            iter: self.map.sorted_by(move |a, &(), b, &()| cmp(a, b)).iter,
-        }
+        let mut entries = self.into_entries();
+        entries.sort_by(move |a, b| cmp(&a.key, &b.key));
+        IntoIter::new(entries)
     }
 
-    /// Clears the `OrderSet`, returning all values as a drain iterator.
-    /// Keeps the allocated memory for reuse.
-    pub fn drain(&mut self, range: RangeFull) -> Drain<T> {
-        Drain {
-            iter: self.map.drain(range).iter,
-        }
+    /// Sort the set's values by their default ordering.
+    ///
+    /// See [`sort_unstable_by`](Self::sort_unstable_by) for details.
+    pub fn sort_unstable(&mut self)
+    where
+        T: Ord,
+    {
+        self.map.sort_unstable_keys()
     }
-}
 
-impl<T, S> OrderSet<T, S> {
+    /// Sort the set's values in place using the comparison function `cmp`.
+    ///
+    /// Computes in **O(n log n)** time. The sort is unstable.
+    pub fn sort_unstable_by<F>(&mut self, mut cmp: F)
+    where
+        F: FnMut(&T, &T) -> Ordering,
+    {
+        self.map.sort_unstable_by(move |a, _, b, _| cmp(a, b))
+    }
+
+    /// Sort the values of the set and return a by-value iterator of
+    /// the values with the result.
+    pub fn sorted_unstable_by<F>(self, mut cmp: F) -> IntoIter<T>
+    where
+        F: FnMut(&T, &T) -> Ordering,
+    {
+        let mut entries = self.into_entries();
+        entries.sort_unstable_by(move |a, b| cmp(&a.key, &b.key));
+        IntoIter::new(entries)
+    }
+
+    /// Sort the set’s values in place using a key extraction function.
+    ///
+    /// During sorting, the function is called at most once per entry, by using temporary storage
+    /// to remember the results of its evaluation. The order of calls to the function is
+    /// unspecified and may change between versions of `indexmap` or the standard library.
+    ///
+    /// Computes in **O(m n + n log n + c)** time () and **O(n)** space, where the function is
+    /// **O(m)**, *n* is the length of the map, and *c* the capacity. The sort is stable.
+    pub fn sort_by_cached_key<K, F>(&mut self, mut sort_key: F)
+    where
+        K: Ord,
+        F: FnMut(&T) -> K,
+    {
+        self.with_entries(move |entries| {
+            entries.sort_by_cached_key(move |a| sort_key(&a.key));
+        });
+    }
+
+    /// Search over a sorted set for a value.
+    ///
+    /// Returns the position where that value is present, or the position where it can be inserted
+    /// to maintain the sort. See [`slice::binary_search`] for more details.
+    ///
+    /// Computes in **O(log(n))** time, which is notably less scalable than looking the value up
+    /// using [`get_index_of`][IndexSet::get_index_of], but this can also position missing values.
+    pub fn binary_search(&self, x: &T) -> Result<usize, usize>
+    where
+        T: Ord,
+    {
+        self.as_slice().binary_search(x)
+    }
+
+    /// Search over a sorted set with a comparator function.
+    ///
+    /// Returns the position where that value is present, or the position where it can be inserted
+    /// to maintain the sort. See [`slice::binary_search_by`] for more details.
+    ///
+    /// Computes in **O(log(n))** time.
+    #[inline]
+    pub fn binary_search_by<'a, F>(&'a self, f: F) -> Result<usize, usize>
+    where
+        F: FnMut(&'a T) -> Ordering,
+    {
+        self.as_slice().binary_search_by(f)
+    }
+
+    /// Search over a sorted set with an extraction function.
+    ///
+    /// Returns the position where that value is present, or the position where it can be inserted
+    /// to maintain the sort. See [`slice::binary_search_by_key`] for more details.
+    ///
+    /// Computes in **O(log(n))** time.
+    #[inline]
+    pub fn binary_search_by_key<'a, B, F>(&'a self, b: &B, f: F) -> Result<usize, usize>
+    where
+        F: FnMut(&'a T) -> B,
+        B: Ord,
+    {
+        self.as_slice().binary_search_by_key(b, f)
+    }
+
+    /// Returns the index of the partition point of a sorted set according to the given predicate
+    /// (the index of the first element of the second partition).
+    ///
+    /// See [`slice::partition_point`] for more details.
+    ///
+    /// Computes in **O(log(n))** time.
+    #[must_use]
+    pub fn partition_point<P>(&self, pred: P) -> usize
+    where
+        P: FnMut(&T) -> bool,
+    {
+        self.as_slice().partition_point(pred)
+    }
+
+    /// Reverses the order of the set’s values in place.
+    ///
+    /// Computes in **O(n)** time and **O(1)** space.
+    pub fn reverse(&mut self) {
+        self.map.reverse()
+    }
+
+    /// Returns a slice of all the values in the set.
+    ///
+    /// Computes in **O(1)** time.
+    pub fn as_slice(&self) -> &Slice<T> {
+        Slice::from_slice(self.as_entries())
+    }
+
+    /// Converts into a boxed slice of all the values in the set.
+    ///
+    /// Note that this will drop the inner hash table and any excess capacity.
+    pub fn into_boxed_slice(self) -> Box<Slice<T>> {
+        Slice::from_boxed(self.into_entries().into_boxed_slice())
+    }
+
     /// Get a value by index
     ///
     /// Valid indices are *0 <= index < self.len()*
     ///
     /// Computes in **O(1)** time.
     pub fn get_index(&self, index: usize) -> Option<&T> {
-        self.map.get_index(index).map(|(x, &())| x)
+        self.as_entries().get(index).map(Bucket::key_ref)
     }
 
-    /// Remove the key-value pair by index
+    /// Returns a slice of values in the given range of indices.
     ///
     /// Valid indices are *0 <= index < self.len()*
+    ///
+    /// Computes in **O(1)** time.
+    pub fn get_range<R: RangeBounds<usize>>(&self, range: R) -> Option<&Slice<T>> {
+        let entries = self.as_entries();
+        let range = try_simplify_range(range, entries.len())?;
+        entries.get(range).map(Slice::from_slice)
+    }
+
+    /// Get the first value
+    ///
+    /// Computes in **O(1)** time.
+    pub fn first(&self) -> Option<&T> {
+        self.as_entries().first().map(Bucket::key_ref)
+    }
+
+    /// Get the last value
+    ///
+    /// Computes in **O(1)** time.
+    pub fn last(&self) -> Option<&T> {
+        self.as_entries().last().map(Bucket::key_ref)
+    }
+
+    /// Remove the value by index
+    ///
+    /// Valid indices are *0 <= index < self.len()*
+    ///
+    /// Like [`Vec::swap_remove`], the value is removed by swapping it with the
+    /// last element of the set and popping it off. **This perturbs
+    /// the position of what used to be the last element!**
     ///
     /// Computes in **O(1)** time (average).
     pub fn swap_remove_index(&mut self, index: usize) -> Option<T> {
         self.map.swap_remove_index(index).map(|(x, ())| x)
     }
-}
 
+    /// Remove the value by index
+    ///
+    /// Valid indices are *0 <= index < self.len()*
+    ///
+    /// Like [`Vec::remove`], the value is removed by shifting all of the
+    /// elements that follow it, preserving their relative order.
+    /// **This perturbs the index of all of those elements!**
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn shift_remove_index(&mut self, index: usize) -> Option<T> {
+        self.map.shift_remove_index(index).map(|(x, ())| x)
+    }
 
-pub struct IntoIter<T> {
-    iter: vec::IntoIter<Bucket<T>>,
-}
+    /// Moves the position of a value from one index to another
+    /// by shifting all other values in-between.
+    ///
+    /// * If `from < to`, the other values will shift down while the targeted value moves up.
+    /// * If `from > to`, the other values will shift up while the targeted value moves down.
+    ///
+    /// ***Panics*** if `from` or `to` are out of bounds.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn move_index(&mut self, from: usize, to: usize) {
+        self.map.move_index(from, to)
+    }
 
-impl<T> Iterator for IntoIter<T> {
-    type Item = T;
-
-    iterator_methods!(Bucket::key);
-}
-
-impl<T> DoubleEndedIterator for IntoIter<T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(Bucket::key)
+    /// Swaps the position of two values in the set.
+    ///
+    /// ***Panics*** if `a` or `b` are out of bounds.
+    ///
+    /// Computes in **O(1)** time (average).
+    pub fn swap_indices(&mut self, a: usize, b: usize) {
+        self.map.swap_indices(a, b)
     }
 }
 
-impl<T> ExactSizeIterator for IntoIter<T> {
-    fn len(&self) -> usize {
-        self.iter.len()
+/// Access [`IndexSet`] values at indexed positions.
+///
+/// # Examples
+///
+/// ```
+/// use indexmap::IndexSet;
+///
+/// let mut set = IndexSet::new();
+/// for word in "Lorem ipsum dolor sit amet".split_whitespace() {
+///     set.insert(word.to_string());
+/// }
+/// assert_eq!(set[0], "Lorem");
+/// assert_eq!(set[1], "ipsum");
+/// set.reverse();
+/// assert_eq!(set[0], "amet");
+/// assert_eq!(set[1], "sit");
+/// set.sort();
+/// assert_eq!(set[0], "Lorem");
+/// assert_eq!(set[1], "amet");
+/// ```
+///
+/// ```should_panic
+/// use indexmap::IndexSet;
+///
+/// let mut set = IndexSet::new();
+/// set.insert("foo");
+/// println!("{:?}", set[10]); // panics!
+/// ```
+impl<T, S> Index<usize> for IndexSet<T, S> {
+    type Output = T;
+
+    /// Returns a reference to the value at the supplied `index`.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    fn index(&self, index: usize) -> &T {
+        self.get_index(index)
+            .expect("IndexSet: index out of bounds")
     }
 }
 
-
-pub struct Iter<'a, T: 'a> {
-    iter: slice::Iter<'a, Bucket<T>>,
-}
-
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-
-    iterator_methods!(Bucket::key_ref);
-}
-
-impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(Bucket::key_ref)
-    }
-}
-
-impl<'a, T> ExactSizeIterator for Iter<'a, T> {
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
-
-pub struct Drain<'a, T: 'a> {
-    iter: vec::Drain<'a, Bucket<T>>,
-}
-
-impl<'a, T> Iterator for Drain<'a, T> {
-    type Item = T;
-
-    iterator_methods!(Bucket::key);
-}
-
-impl<'a, T> DoubleEndedIterator for Drain<'a, T> {
-    double_ended_iterator_methods!(Bucket::key);
-}
-
-impl<'a, T, S> IntoIterator for &'a OrderSet<T, S>
-    where T: Hash + Eq,
-          S: BuildHasher,
+impl<T, S> FromIterator<T> for IndexSet<T, S>
+where
+    T: Hash + Eq,
+    S: BuildHasher + Default,
 {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl<T, S> IntoIterator for OrderSet<T, S>
-    where T: Hash + Eq,
-          S: BuildHasher,
-{
-    type Item = T;
-    type IntoIter = IntoIter<T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
-            iter: self.map.into_iter().iter,
+    fn from_iter<I: IntoIterator<Item = T>>(iterable: I) -> Self {
+        let iter = iterable.into_iter().map(|x| (x, ()));
+        IndexSet {
+            map: IndexMap::from_iter(iter),
         }
     }
 }
 
-impl<T, S> FromIterator<T> for OrderSet<T, S>
-    where T: Hash + Eq,
-          S: BuildHasher + Default,
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+impl<T, const N: usize> From<[T; N]> for IndexSet<T, RandomState>
+where
+    T: Eq + Hash,
 {
-    fn from_iter<I: IntoIterator<Item=T>>(iterable: I) -> Self {
-        let iter = iterable.into_iter().map(|x| (x, ()));
-        OrderSet { map: OrderMap::from_iter(iter) }
+    /// # Examples
+    ///
+    /// ```
+    /// use indexmap::IndexSet;
+    ///
+    /// let set1 = IndexSet::from([1, 2, 3, 4]);
+    /// let set2: IndexSet<_> = [1, 2, 3, 4].into();
+    /// assert_eq!(set1, set2);
+    /// ```
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr)
     }
 }
 
-impl<T, S> Extend<T> for OrderSet<T, S>
-    where T: Hash + Eq,
-          S: BuildHasher,
+impl<T, S> Extend<T> for IndexSet<T, S>
+where
+    T: Hash + Eq,
+    S: BuildHasher,
 {
-    fn extend<I: IntoIterator<Item=T>>(&mut self, iterable: I) {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iterable: I) {
         let iter = iterable.into_iter().map(|x| (x, ()));
         self.map.extend(iter);
     }
 }
 
-impl<'a, T, S> Extend<&'a T> for OrderSet<T, S>
-    where T: Hash + Eq + Copy,
-          S: BuildHasher,
+impl<'a, T, S> Extend<&'a T> for IndexSet<T, S>
+where
+    T: Hash + Eq + Copy + 'a,
+    S: BuildHasher,
 {
-    fn extend<I: IntoIterator<Item=&'a T>>(&mut self, iterable: I) {
-        let iter = iterable.into_iter().map(|&x| x);
+    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iterable: I) {
+        let iter = iterable.into_iter().copied();
         self.extend(iter);
     }
 }
 
-
-impl<T, S> Default for OrderSet<T, S>
-    where S: BuildHasher + Default,
+impl<T, S> Default for IndexSet<T, S>
+where
+    S: Default,
 {
-    /// Return an empty `OrderSet`
+    /// Return an empty [`IndexSet`]
     fn default() -> Self {
-        OrderSet { map: OrderMap::default() }
+        IndexSet {
+            map: IndexMap::default(),
+        }
     }
 }
 
-impl<T, S1, S2> PartialEq<OrderSet<T, S2>> for OrderSet<T, S1>
-    where T: Hash + Eq,
-          S1: BuildHasher,
-          S2: BuildHasher
+impl<T, S1, S2> PartialEq<IndexSet<T, S2>> for IndexSet<T, S1>
+where
+    T: Hash + Eq,
+    S1: BuildHasher,
+    S2: BuildHasher,
 {
-    fn eq(&self, other: &OrderSet<T, S2>) -> bool {
+    fn eq(&self, other: &IndexSet<T, S2>) -> bool {
         self.len() == other.len() && self.is_subset(other)
     }
 }
 
-impl<T, S> Eq for OrderSet<T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
+impl<T, S> Eq for IndexSet<T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher,
 {
 }
 
-impl<T, S> OrderSet<T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
+impl<T, S> IndexSet<T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher,
 {
     /// Returns `true` if `self` has no elements in common with `other`.
-    pub fn is_disjoint<S2>(&self, other: &OrderSet<T, S2>) -> bool
-        where S2: BuildHasher
+    pub fn is_disjoint<S2>(&self, other: &IndexSet<T, S2>) -> bool
+    where
+        S2: BuildHasher,
     {
         if self.len() <= other.len() {
             self.iter().all(move |value| !other.contains(value))
@@ -561,578 +1086,84 @@ impl<T, S> OrderSet<T, S>
     }
 
     /// Returns `true` if all elements of `self` are contained in `other`.
-    pub fn is_subset<S2>(&self, other: &OrderSet<T, S2>) -> bool
-        where S2: BuildHasher
+    pub fn is_subset<S2>(&self, other: &IndexSet<T, S2>) -> bool
+    where
+        S2: BuildHasher,
     {
         self.len() <= other.len() && self.iter().all(move |value| other.contains(value))
     }
 
     /// Returns `true` if all elements of `other` are contained in `self`.
-    pub fn is_superset<S2>(&self, other: &OrderSet<T, S2>) -> bool
-        where S2: BuildHasher
+    pub fn is_superset<S2>(&self, other: &IndexSet<T, S2>) -> bool
+    where
+        S2: BuildHasher,
     {
         other.is_subset(self)
     }
 }
 
-
-pub struct Difference<'a, T: 'a, S: 'a> {
-    iter: Iter<'a, T>,
-    other: &'a OrderSet<T, S>,
-}
-
-impl<'a, T, S> Iterator for Difference<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
+impl<T, S1, S2> BitAnd<&IndexSet<T, S2>> for &IndexSet<T, S1>
+where
+    T: Eq + Hash + Clone,
+    S1: BuildHasher + Default,
+    S2: BuildHasher,
 {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(item) = self.iter.next() {
-            if !self.other.contains(item) {
-                return Some(item);
-            }
-        }
-        None
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, self.iter.size_hint().1)
-    }
-}
-
-impl<'a, T, S> DoubleEndedIterator for Difference<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        while let Some(item) = self.iter.next_back() {
-            if !self.other.contains(item) {
-                return Some(item);
-            }
-        }
-        None
-    }
-}
-
-
-pub struct Intersection<'a, T: 'a, S: 'a> {
-    iter: Iter<'a, T>,
-    other: &'a OrderSet<T, S>,
-}
-
-impl<'a, T, S> Iterator for Intersection<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
-{
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(item) = self.iter.next() {
-            if self.other.contains(item) {
-                return Some(item);
-            }
-        }
-        None
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, self.iter.size_hint().1)
-    }
-}
-
-impl<'a, T, S> DoubleEndedIterator for Intersection<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        while let Some(item) = self.iter.next_back() {
-            if self.other.contains(item) {
-                return Some(item);
-            }
-        }
-        None
-    }
-}
-
-
-pub struct SymmetricDifference<'a, T: 'a, S1: 'a, S2: 'a> {
-    iter: Chain<Difference<'a, T, S2>, Difference<'a, T, S1>>,
-}
-
-impl<'a, T, S1, S2> Iterator for SymmetricDifference<'a, T, S1, S2>
-    where T: Eq + Hash,
-          S1: BuildHasher,
-          S2: BuildHasher,
-{
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-
-    fn fold<B, F>(self, init: B, f: F) -> B
-        where F: FnMut(B, Self::Item) -> B
-    {
-        self.iter.fold(init, f)
-    }
-}
-
-impl<'a, T, S1, S2> DoubleEndedIterator for SymmetricDifference<'a, T, S1, S2>
-    where T: Eq + Hash,
-          S1: BuildHasher,
-          S2: BuildHasher,
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back()
-    }
-}
-
-
-pub struct Union<'a, T: 'a, S: 'a> {
-    iter: Chain<Iter<'a, T>, Difference<'a, T, S>>,
-}
-
-impl<'a, T, S> Iterator for Union<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher,
-{
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-
-    fn fold<B, F>(self, init: B, f: F) -> B
-        where F: FnMut(B, Self::Item) -> B
-    {
-        self.iter.fold(init, f)
-    }
-}
-
-impl<'a, T, S> DoubleEndedIterator for Union<'a, T, S>
-    where T: Eq + Hash,
-          S: BuildHasher,
-{
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back()
-    }
-}
-
-
-impl<'a, 'b, T, S1, S2> BitAnd<&'b OrderSet<T, S2>> for &'a OrderSet<T, S1>
-    where T: Eq + Hash + Clone,
-          S1: BuildHasher + Default,
-          S2: BuildHasher,
-{
-    type Output = OrderSet<T, S1>;
+    type Output = IndexSet<T, S1>;
 
     /// Returns the set intersection, cloned into a new set.
     ///
     /// Values are collected in the same order that they appear in `self`.
-    fn bitand(self, other: &'b OrderSet<T, S2>) -> Self::Output {
+    fn bitand(self, other: &IndexSet<T, S2>) -> Self::Output {
         self.intersection(other).cloned().collect()
     }
 }
 
-impl<'a, 'b, T, S1, S2> BitOr<&'b OrderSet<T, S2>> for &'a OrderSet<T, S1>
-    where T: Eq + Hash + Clone,
-          S1: BuildHasher + Default,
-          S2: BuildHasher,
+impl<T, S1, S2> BitOr<&IndexSet<T, S2>> for &IndexSet<T, S1>
+where
+    T: Eq + Hash + Clone,
+    S1: BuildHasher + Default,
+    S2: BuildHasher,
 {
-    type Output = OrderSet<T, S1>;
+    type Output = IndexSet<T, S1>;
 
     /// Returns the set union, cloned into a new set.
     ///
     /// Values from `self` are collected in their original order, followed by
     /// values that are unique to `other` in their original order.
-    fn bitor(self, other: &'b OrderSet<T, S2>) -> Self::Output {
+    fn bitor(self, other: &IndexSet<T, S2>) -> Self::Output {
         self.union(other).cloned().collect()
     }
 }
 
-impl<'a, 'b, T, S1, S2> BitXor<&'b OrderSet<T, S2>> for &'a OrderSet<T, S1>
-    where T: Eq + Hash + Clone,
-          S1: BuildHasher + Default,
-          S2: BuildHasher,
+impl<T, S1, S2> BitXor<&IndexSet<T, S2>> for &IndexSet<T, S1>
+where
+    T: Eq + Hash + Clone,
+    S1: BuildHasher + Default,
+    S2: BuildHasher,
 {
-    type Output = OrderSet<T, S1>;
+    type Output = IndexSet<T, S1>;
 
     /// Returns the set symmetric-difference, cloned into a new set.
     ///
     /// Values from `self` are collected in their original order, followed by
     /// values from `other` in their original order.
-    fn bitxor(self, other: &'b OrderSet<T, S2>) -> Self::Output {
+    fn bitxor(self, other: &IndexSet<T, S2>) -> Self::Output {
         self.symmetric_difference(other).cloned().collect()
     }
 }
 
-impl<'a, 'b, T, S1, S2> Sub<&'b OrderSet<T, S2>> for &'a OrderSet<T, S1>
-    where T: Eq + Hash + Clone,
-          S1: BuildHasher + Default,
-          S2: BuildHasher,
+impl<T, S1, S2> Sub<&IndexSet<T, S2>> for &IndexSet<T, S1>
+where
+    T: Eq + Hash + Clone,
+    S1: BuildHasher + Default,
+    S2: BuildHasher,
 {
-    type Output = OrderSet<T, S1>;
+    type Output = IndexSet<T, S1>;
 
     /// Returns the set difference, cloned into a new set.
     ///
     /// Values are collected in the same order that they appear in `self`.
-    fn sub(self, other: &'b OrderSet<T, S2>) -> Self::Output {
+    fn sub(self, other: &IndexSet<T, S2>) -> Self::Output {
         self.difference(other).cloned().collect()
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use util::enumerate;
-
-    #[test]
-    fn it_works() {
-        let mut set = OrderSet::new();
-        assert_eq!(set.is_empty(), true);
-        set.insert(1);
-        set.insert(1);
-        assert_eq!(set.len(), 1);
-        assert!(set.get(&1).is_some());
-        assert_eq!(set.is_empty(), false);
-    }
-
-    #[test]
-    fn new() {
-        let set = OrderSet::<String>::new();
-        println!("{:?}", set);
-        assert_eq!(set.capacity(), 0);
-        assert_eq!(set.len(), 0);
-        assert_eq!(set.is_empty(), true);
-    }
-
-    #[test]
-    fn insert() {
-        let insert = [0, 4, 2, 12, 8, 7, 11, 5];
-        let not_present = [1, 3, 6, 9, 10];
-        let mut set = OrderSet::with_capacity(insert.len());
-
-        for (i, &elt) in enumerate(&insert) {
-            assert_eq!(set.len(), i);
-            set.insert(elt);
-            assert_eq!(set.len(), i + 1);
-            assert_eq!(set.get(&elt), Some(&elt));
-        }
-        println!("{:?}", set);
-
-        for &elt in &not_present {
-            assert!(set.get(&elt).is_none());
-        }
-    }
-
-    #[test]
-    fn insert_2() {
-        let mut set = OrderSet::with_capacity(16);
-
-        let mut values = vec![];
-        values.extend(0..16);
-        values.extend(128..267);
-
-        for &i in &values {
-            let old_set = set.clone();
-            set.insert(i);
-            for value in old_set.iter() {
-                if !set.get(value).is_some() {
-                    println!("old_set: {:?}", old_set);
-                    println!("set: {:?}", set);
-                    panic!("did not find {} in set", value);
-                }
-            }
-        }
-
-        for &i in &values {
-            assert!(set.get(&i).is_some(), "did not find {}", i);
-        }
-    }
-
-    #[test]
-    fn insert_dup() {
-        let mut elements = vec![0, 2, 4, 6, 8];
-        let mut set: OrderSet<u8> = elements.drain(..).collect();
-        {
-            let (i, v) = set.get_full(&0).unwrap();
-            assert_eq!(set.len(), 5);
-            assert_eq!(i, 0);
-            assert_eq!(*v, 0);
-        }
-        {
-            let inserted = set.insert(0);
-            let (i, v) = set.get_full(&0).unwrap();
-            assert_eq!(set.len(), 5);
-            assert_eq!(inserted, false);
-            assert_eq!(i, 0);
-            assert_eq!(*v, 0);
-        }
-    }
-
-    #[test]
-    fn insert_order() {
-        let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-        let mut set = OrderSet::new();
-
-        for &elt in &insert {
-            set.insert(elt);
-        }
-
-        assert_eq!(set.iter().count(), set.len());
-        assert_eq!(set.iter().count(), insert.len());
-        for (a, b) in insert.iter().zip(set.iter()) {
-            assert_eq!(a, b);
-        }
-        for (i, v) in (0..insert.len()).zip(set.iter()) {
-            assert_eq!(set.get_index(i).unwrap(), v);
-        }
-    }
-
-    #[test]
-    fn grow() {
-        let insert = [0, 4, 2, 12, 8, 7, 11];
-        let not_present = [1, 3, 6, 9, 10];
-        let mut set = OrderSet::with_capacity(insert.len());
-
-
-        for (i, &elt) in enumerate(&insert) {
-            assert_eq!(set.len(), i);
-            set.insert(elt);
-            assert_eq!(set.len(), i + 1);
-            assert_eq!(set.get(&elt), Some(&elt));
-        }
-
-        println!("{:?}", set);
-        for &elt in &insert {
-            set.insert(elt * 10);
-        }
-        for &elt in &insert {
-            set.insert(elt * 100);
-        }
-        for (i, &elt) in insert.iter().cycle().enumerate().take(100) {
-            set.insert(elt * 100 + i as i32);
-        }
-        println!("{:?}", set);
-        for &elt in &not_present {
-            assert!(set.get(&elt).is_none());
-        }
-    }
-
-    #[test]
-    fn remove() {
-        let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-        let mut set = OrderSet::new();
-
-        for &elt in &insert {
-            set.insert(elt);
-        }
-
-        assert_eq!(set.iter().count(), set.len());
-        assert_eq!(set.iter().count(), insert.len());
-        for (a, b) in insert.iter().zip(set.iter()) {
-            assert_eq!(a, b);
-        }
-
-        let remove_fail = [99, 77];
-        let remove = [4, 12, 8, 7];
-
-        for &value in &remove_fail {
-            assert!(set.swap_remove_full(&value).is_none());
-        }
-        println!("{:?}", set);
-        for &value in &remove {
-        //println!("{:?}", set);
-            let index = set.get_full(&value).unwrap().0;
-            assert_eq!(set.swap_remove_full(&value), Some((index, value)));
-        }
-        println!("{:?}", set);
-
-        for value in &insert {
-            assert_eq!(set.get(value).is_some(), !remove.contains(value));
-        }
-        assert_eq!(set.len(), insert.len() - remove.len());
-        assert_eq!(set.iter().count(), insert.len() - remove.len());
-    }
-
-    #[test]
-    fn swap_remove_index() {
-        let insert = [0, 4, 2, 12, 8, 7, 11, 5, 3, 17, 19, 22, 23];
-        let mut set = OrderSet::new();
-
-        for &elt in &insert {
-            set.insert(elt);
-        }
-
-        let mut vector = insert.to_vec();
-        let remove_sequence = &[3, 3, 10, 4, 5, 4, 3, 0, 1];
-
-        // check that the same swap remove sequence on vec and set
-        // have the same result.
-        for &rm in remove_sequence {
-            let out_vec = vector.swap_remove(rm);
-            let out_set = set.swap_remove_index(rm).unwrap();
-            assert_eq!(out_vec, out_set);
-        }
-        assert_eq!(vector.len(), set.len());
-        for (a, b) in vector.iter().zip(set.iter()) {
-            assert_eq!(a, b);
-        }
-    }
-
-    #[test]
-    fn partial_eq_and_eq() {
-        let mut set_a = OrderSet::new();
-        set_a.insert(1);
-        set_a.insert(2);
-        let mut set_b = set_a.clone();
-        assert_eq!(set_a, set_b);
-        set_b.remove(&1);
-        assert_ne!(set_a, set_b);
-
-        let set_c: OrderSet<_> = set_b.into_iter().collect();
-        assert_ne!(set_a, set_c);
-        assert_ne!(set_c, set_a);
-    }
-
-    #[test]
-    fn extend() {
-        let mut set = OrderSet::new();
-        set.extend(vec![&1, &2, &3, &4]);
-        set.extend(vec![5, 6]);
-        assert_eq!(set.into_iter().collect::<Vec<_>>(), vec![1, 2, 3, 4, 5, 6]);
-    }
-
-    #[test]
-    fn comparisons() {
-        let set_a: OrderSet<_> = (0..3).collect();
-        let set_b: OrderSet<_> = (3..6).collect();
-        let set_c: OrderSet<_> = (0..6).collect();
-        let set_d: OrderSet<_> = (3..9).collect();
-
-        assert!(!set_a.is_disjoint(&set_a));
-        assert!(set_a.is_subset(&set_a));
-        assert!(set_a.is_superset(&set_a));
-
-        assert!(set_a.is_disjoint(&set_b));
-        assert!(set_b.is_disjoint(&set_a));
-        assert!(!set_a.is_subset(&set_b));
-        assert!(!set_b.is_subset(&set_a));
-        assert!(!set_a.is_superset(&set_b));
-        assert!(!set_b.is_superset(&set_a));
-
-        assert!(!set_a.is_disjoint(&set_c));
-        assert!(!set_c.is_disjoint(&set_a));
-        assert!(set_a.is_subset(&set_c));
-        assert!(!set_c.is_subset(&set_a));
-        assert!(!set_a.is_superset(&set_c));
-        assert!(set_c.is_superset(&set_a));
-
-        assert!(!set_c.is_disjoint(&set_d));
-        assert!(!set_d.is_disjoint(&set_c));
-        assert!(!set_c.is_subset(&set_d));
-        assert!(!set_d.is_subset(&set_c));
-        assert!(!set_c.is_superset(&set_d));
-        assert!(!set_d.is_superset(&set_c));
-    }
-
-    #[test]
-    fn iter_comparisons() {
-        use std::iter::empty;
-
-        fn check<'a, I1, I2>(iter1: I1, iter2: I2)
-            where I1: Iterator<Item = &'a i32>,
-                  I2: Iterator<Item = i32>,
-        {
-            assert!(iter1.cloned().eq(iter2));
-        }
-
-        let set_a: OrderSet<_> = (0..3).collect();
-        let set_b: OrderSet<_> = (3..6).collect();
-        let set_c: OrderSet<_> = (0..6).collect();
-        let set_d: OrderSet<_> = (3..9).rev().collect();
-
-        check(set_a.difference(&set_a), empty());
-        check(set_a.symmetric_difference(&set_a), empty());
-        check(set_a.intersection(&set_a), 0..3);
-        check(set_a.union(&set_a), 0..3);
-
-        check(set_a.difference(&set_b), 0..3);
-        check(set_b.difference(&set_a), 3..6);
-        check(set_a.symmetric_difference(&set_b), 0..6);
-        check(set_b.symmetric_difference(&set_a), (3..6).chain(0..3));
-        check(set_a.intersection(&set_b), empty());
-        check(set_b.intersection(&set_a), empty());
-        check(set_a.union(&set_b), 0..6);
-        check(set_b.union(&set_a), (3..6).chain(0..3));
-
-        check(set_a.difference(&set_c), empty());
-        check(set_c.difference(&set_a), 3..6);
-        check(set_a.symmetric_difference(&set_c), 3..6);
-        check(set_c.symmetric_difference(&set_a), 3..6);
-        check(set_a.intersection(&set_c), 0..3);
-        check(set_c.intersection(&set_a), 0..3);
-        check(set_a.union(&set_c), 0..6);
-        check(set_c.union(&set_a), 0..6);
-
-        check(set_c.difference(&set_d), 0..3);
-        check(set_d.difference(&set_c), (6..9).rev());
-        check(set_c.symmetric_difference(&set_d), (0..3).chain((6..9).rev()));
-        check(set_d.symmetric_difference(&set_c), (6..9).rev().chain(0..3));
-        check(set_c.intersection(&set_d), 3..6);
-        check(set_d.intersection(&set_c), (3..6).rev());
-        check(set_c.union(&set_d), (0..6).chain((6..9).rev()));
-        check(set_d.union(&set_c), (3..9).rev().chain(0..3));
-    }
-
-    #[test]
-    fn ops() {
-        let empty = OrderSet::<i32>::new();
-        let set_a: OrderSet<_> = (0..3).collect();
-        let set_b: OrderSet<_> = (3..6).collect();
-        let set_c: OrderSet<_> = (0..6).collect();
-        let set_d: OrderSet<_> = (3..9).rev().collect();
-
-        assert_eq!(&set_a & &set_a, set_a);
-        assert_eq!(&set_a | &set_a, set_a);
-        assert_eq!(&set_a ^ &set_a, empty);
-        assert_eq!(&set_a - &set_a, empty);
-
-        assert_eq!(&set_a & &set_b, empty);
-        assert_eq!(&set_b & &set_a, empty);
-        assert_eq!(&set_a | &set_b, set_c);
-        assert_eq!(&set_b | &set_a, set_c);
-        assert_eq!(&set_a ^ &set_b, set_c);
-        assert_eq!(&set_b ^ &set_a, set_c);
-        assert_eq!(&set_a - &set_b, set_a);
-        assert_eq!(&set_b - &set_a, set_b);
-
-        assert_eq!(&set_a & &set_c, set_a);
-        assert_eq!(&set_c & &set_a, set_a);
-        assert_eq!(&set_a | &set_c, set_c);
-        assert_eq!(&set_c | &set_a, set_c);
-        assert_eq!(&set_a ^ &set_c, set_b);
-        assert_eq!(&set_c ^ &set_a, set_b);
-        assert_eq!(&set_a - &set_c, empty);
-        assert_eq!(&set_c - &set_a, set_b);
-
-        assert_eq!(&set_c & &set_d, set_b);
-        assert_eq!(&set_d & &set_c, set_b);
-        assert_eq!(&set_c | &set_d, &set_a | &set_d);
-        assert_eq!(&set_d | &set_c, &set_a | &set_d);
-        assert_eq!(&set_c ^ &set_d, &set_a | &(&set_d - &set_b));
-        assert_eq!(&set_d ^ &set_c, &set_a | &(&set_d - &set_b));
-        assert_eq!(&set_c - &set_d, set_a);
-        assert_eq!(&set_d - &set_c, &set_d - &set_b);
     }
 }
