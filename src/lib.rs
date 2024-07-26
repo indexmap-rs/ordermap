@@ -93,7 +93,7 @@
 //! `default-features = false` to your dependency specification.
 //!
 //! - Creating maps and sets using [`new`][OrderMap::new] and
-//! [`with_capacity`][OrderMap::with_capacity] is unavailable without `std`.
+//!   [`with_capacity`][OrderMap::with_capacity] is unavailable without `std`.
 //!   Use methods [`OrderMap::default`], [`with_hasher`][OrderMap::with_hasher],
 //!   [`with_capacity_and_hasher`][OrderMap::with_capacity_and_hasher] instead.
 //!   A no-std compatible hasher will be needed as well, for example
