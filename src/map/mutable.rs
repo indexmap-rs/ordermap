@@ -1,4 +1,4 @@
-use super::{Entry, Equivalent, IndexedEntry, OccupiedEntry, OrderMap, VacantEntry};
+use super::{Entry, Equivalent, IndexedEntry, IterMut2, OccupiedEntry, OrderMap, VacantEntry};
 use core::hash::{BuildHasher, Hash};
 use indexmap::map::MutableEntryKey as _;
 use indexmap::map::MutableKeys as _;
@@ -35,6 +35,9 @@ pub trait MutableKeys: private::Sealed {
     /// Computes in **O(1)** time.
     fn get_index_mut2(&mut self, index: usize) -> Option<(&mut Self::Key, &mut Self::Value)>;
 
+    /// Return an iterator over the key-value pairs of the map, in their order
+    fn iter_mut2(&mut self) -> IterMut2<'_, Self::Key, Self::Value>;
+
     /// Scan through each key-value pair in the map and keep those where the
     /// closure `keep` returns `true`.
     ///
@@ -66,6 +69,10 @@ where
 
     fn get_index_mut2(&mut self, index: usize) -> Option<(&mut K, &mut V)> {
         self.inner.get_index_mut2(index)
+    }
+
+    fn iter_mut2(&mut self) -> IterMut2<'_, Self::Key, Self::Value> {
+        self.inner.iter_mut2()
     }
 
     fn retain2<F>(&mut self, keep: F)

@@ -28,7 +28,8 @@ pub use self::mutable::MutableEntryKey;
 pub use self::mutable::MutableKeys;
 pub use self::raw_entry_v1::RawEntryApiV1;
 pub use indexmap::map::{
-    Drain, IntoIter, IntoKeys, IntoValues, Iter, IterMut, Keys, Slice, Splice, Values, ValuesMut,
+    Drain, IntoIter, IntoKeys, IntoValues, Iter, IterMut, IterMut2, Keys, Slice, Splice, Values,
+    ValuesMut,
 };
 
 #[cfg(feature = "rayon")]
