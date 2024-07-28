@@ -24,6 +24,7 @@ pub mod serde_seq;
 mod tests;
 
 pub use self::entry::{Entry, IndexedEntry, OccupiedEntry, VacantEntry};
+pub use self::mutable::MutableEntryKey;
 pub use self::mutable::MutableKeys;
 pub use self::raw_entry_v1::RawEntryApiV1;
 pub use indexmap::map::{
