@@ -121,7 +121,7 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for Entry<'_, K, V> {
 /// A view into an occupied entry in an [`OrderMap`][crate::OrderMap].
 /// It is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'a, K, V> {
-    inner: ix::OccupiedEntry<'a, K, V>,
+    pub(crate) inner: ix::OccupiedEntry<'a, K, V>,
 }
 
 impl<'a, K, V> OccupiedEntry<'a, K, V> {
@@ -253,7 +253,7 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for OccupiedEntry<'_, K, V> {
 /// A view into a vacant entry in an [`OrderMap`][crate::OrderMap].
 /// It is part of the [`Entry`] enum.
 pub struct VacantEntry<'a, K, V> {
-    inner: ix::VacantEntry<'a, K, V>,
+    pub(crate) inner: ix::VacantEntry<'a, K, V>,
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V> {
@@ -315,7 +315,7 @@ impl<K: fmt::Debug, V> fmt::Debug for VacantEntry<'_, K, V> {
 ///
 /// This `struct` is created from the [`get_index_entry`][crate::OrderMap::get_index_entry] method.
 pub struct IndexedEntry<'a, K, V> {
-    inner: ix::IndexedEntry<'a, K, V>,
+    pub(crate) inner: ix::IndexedEntry<'a, K, V>,
 }
 
 impl<'a, K, V> IndexedEntry<'a, K, V> {
