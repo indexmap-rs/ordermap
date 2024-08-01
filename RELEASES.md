@@ -1,5 +1,11 @@
 # Releases
 
+## 0.5.1
+
+- Added trait `MutableEntryKey` for opt-in mutable access to map entry keys.
+- Added method `MutableKeys::iter_mut2` for opt-in mutable iteration of map
+  keys and values.
+
 ## 0.5.0
 
 - Reinstated `ordermap` as a crate that wraps `indexmap` with stronger
