@@ -1,5 +1,10 @@
 # Releases
 
+## 0.5.2
+
+- Added methods `OrderMap::append` and `OrderSet::append`, moving all items from
+  one map or set into another, and leaving the original capacity for reuse.
+
 ## 0.5.1
 
 - Added trait `MutableEntryKey` for opt-in mutable access to map entry keys.
