@@ -250,6 +250,14 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for OccupiedEntry<'_, K, V> {
     }
 }
 
+impl<'a, K, V> From<IndexedEntry<'a, K, V>> for OccupiedEntry<'a, K, V> {
+    fn from(entry: IndexedEntry<'a, K, V>) -> Self {
+        Self {
+            inner: entry.inner.into(),
+        }
+    }
+}
+
 /// A view into a vacant entry in an [`OrderMap`][crate::OrderMap].
 /// It is part of the [`Entry`] enum.
 pub struct VacantEntry<'a, K, V> {
@@ -442,5 +450,13 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for IndexedEntry<'_, K, V> {
             .field("key", self.key())
             .field("value", self.get())
             .finish()
+    }
+}
+
+impl<'a, K, V> From<OccupiedEntry<'a, K, V>> for IndexedEntry<'a, K, V> {
+    fn from(entry: OccupiedEntry<'a, K, V>) -> Self {
+        Self {
+            inner: entry.inner.into(),
+        }
     }
 }
