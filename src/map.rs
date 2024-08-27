@@ -943,6 +943,13 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.first_mut()
     }
 
+    /// Get the first entry in the map for in-place manipulation.
+    ///
+    /// Computes in **O(1)** time.
+    pub fn first_entry(&mut self) -> Option<IndexedEntry<'_, K, V>> {
+        self.inner.first_entry().map(IndexedEntry::new)
+    }
+
     /// Get the last key-value pair
     ///
     /// Computes in **O(1)** time.
@@ -955,6 +962,13 @@ impl<K, V, S> OrderMap<K, V, S> {
     /// Computes in **O(1)** time.
     pub fn last_mut(&mut self) -> Option<(&K, &mut V)> {
         self.inner.last_mut()
+    }
+
+    /// Get the last entry in the map for in-place manipulation.
+    ///
+    /// Computes in **O(1)** time.
+    pub fn last_entry(&mut self) -> Option<IndexedEntry<'_, K, V>> {
+        self.inner.last_entry().map(IndexedEntry::new)
     }
 
     /// Remove the key-value pair by index
