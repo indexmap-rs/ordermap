@@ -356,11 +356,29 @@ where
         self.inner.insert_sorted(value)
     }
 
+    /// Insert the value into the set before the value at the given index, or at the end.
+    ///
+    /// If an equivalent item already exists in the set, it returns `false` leaving the
+    /// original value in the set, but moved to the new position. The returned index
+    /// will either be the given index or one less, depending on how the value moved.
+    /// (See [`shift_insert`](Self::shift_insert) for different behavior here.)
+    ///
+    /// Otherwise, it inserts the new value exactly at the given index and returns `true`.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    /// Valid indices are `0..=set.len()` (inclusive).
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_before(&mut self, index: usize, value: T) -> (usize, bool) {
+        self.inner.insert_before(index, value)
+    }
+
     /// Insert the value into the set at the given index.
     ///
     /// If an equivalent item already exists in the set, it returns `false` leaving
     /// the original value in the set, but moved to the given index.
     /// Note that existing values **cannot** be moved to `index == set.len()`!
+    /// (See [`insert_before`](Self::insert_before) for different behavior here.)
     ///
     /// Otherwise, it inserts the new value at the given index and returns `true`.
     ///
