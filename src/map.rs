@@ -687,6 +687,7 @@ impl<K, V, S> OrderMap<K, V, S> {
     /// This preserves the order of the remaining elements.
     ///
     /// Computes in **O(1)** time (average).
+    #[doc(alias = "pop_last")] // like `BTreeMap`
     pub fn pop(&mut self) -> Option<(K, V)> {
         self.inner.pop()
     }
@@ -932,6 +933,7 @@ impl<K, V, S> OrderMap<K, V, S> {
     /// Get the first key-value pair
     ///
     /// Computes in **O(1)** time.
+    #[doc(alias = "first_key_value")] // like `BTreeMap`
     pub fn first(&self) -> Option<(&K, &V)> {
         self.inner.first()
     }
@@ -953,6 +955,7 @@ impl<K, V, S> OrderMap<K, V, S> {
     /// Get the last key-value pair
     ///
     /// Computes in **O(1)** time.
+    #[doc(alias = "last_key_value")] // like `BTreeMap`
     pub fn last(&self) -> Option<(&K, &V)> {
         self.inner.last()
     }
