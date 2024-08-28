@@ -35,7 +35,7 @@ were `ordermap` and `indexmap`, hash tables that have following properties:
 
 Since its reintroduction in 0.5, `ordermap` has also used its entry order for
 `PartialEq` and `Eq`, whereas `indexmap` considers the same entries in *any* order
-to be equal for drop-in compatibility with `HashMap` semantices. Using the order
+to be equal for drop-in compatibility with `HashMap` semantics. Using the order
 is faster, and also allows `ordermap` to implement `PartialOrd`, `Ord`, and `Hash`.
 
 ## Performance
