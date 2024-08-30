@@ -1,5 +1,12 @@
 # Releases
 
+## 0.5.3
+
+- Added an `insert_before` method to `OrderMap` and `OrderSet`, as an
+  alternative to `shift_insert` with different behavior on existing entries.
+- Added `first_entry` and `last_entry` methods to `OrderMap`.
+- Added `From` implementations between `IndexedEntry` and `OccupiedEntry`.
+
 ## 0.5.2
 
 - Added methods `OrderMap::append` and `OrderSet::append`, moving all items from
