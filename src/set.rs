@@ -234,11 +234,17 @@ impl<T, S> OrderSet<T, S> {
         self.inner.drain(range)
     }
 
-    /// Creates an iterator which uses a closure to determine if a value should be removed.
+    /// Creates an iterator which uses a closure to determine if a value should be removed,
+    /// for all values in the given range.
     ///
     /// If the closure returns true, then the value is removed and yielded.
     /// If the closure returns false, the value will remain in the list and will not be yielded
     /// by the iterator.
+    ///
+    /// The range may be any type that implements [`RangeBounds<usize>`],
+    /// including all of the `std::ops::Range*` types, or even a tuple pair of
+    /// `Bound` start and end values. To check the entire set, use `RangeFull`
+    /// like `set.extract_if(.., predicate)`.
     ///
     /// If the returned `ExtractIf` is not exhausted, e.g. because it is dropped without iterating
     /// or the iteration short-circuits, then the remaining elements will be retained.
@@ -254,7 +260,7 @@ impl<T, S> OrderSet<T, S> {
     /// use ordermap::OrderSet;
     ///
     /// let mut set: OrderSet<i32> = (0..8).collect();
-    /// let extracted: OrderSet<i32> = set.extract_if(|v| v % 2 == 0).collect();
+    /// let extracted: OrderSet<i32> = set.extract_if(.., |v| v % 2 == 0).collect();
     ///
     /// let evens = extracted.into_iter().collect::<Vec<_>>();
     /// let odds = set.into_iter().collect::<Vec<_>>();
@@ -262,11 +268,12 @@ impl<T, S> OrderSet<T, S> {
     /// assert_eq!(evens, vec![0, 2, 4, 6]);
     /// assert_eq!(odds, vec![1, 3, 5, 7]);
     /// ```
-    pub fn extract_if<F>(&mut self, pred: F) -> ExtractIf<'_, T, F>
+    pub fn extract_if<F, R>(&mut self, range: R, pred: F) -> ExtractIf<'_, T, F>
     where
         F: FnMut(&T) -> bool,
+        R: RangeBounds<usize>,
     {
-        self.inner.extract_if(.., pred)
+        self.inner.extract_if(range, pred)
     }
 
     /// Splits the collection into two at the given index.
