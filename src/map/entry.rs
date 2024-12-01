@@ -29,6 +29,19 @@ impl<'a, K, V> Entry<'a, K, V> {
         }
     }
 
+    /// Sets the value of the entry (after inserting if vacant), and returns an `OccupiedEntry`.
+    ///
+    /// Computes in **O(1)** time (amortized average).
+    pub fn insert_entry(self, value: V) -> OccupiedEntry<'a, K, V> {
+        match self {
+            Entry::Occupied(mut entry) => {
+                entry.insert(value);
+                entry
+            }
+            Entry::Vacant(entry) => entry.insert_entry(value),
+        }
+    }
+
     /// Inserts the given default value in the entry if it is vacant and returns a mutable
     /// reference to it. Otherwise a mutable reference to an already existent value is returned.
     ///
@@ -284,6 +297,15 @@ impl<'a, K, V> VacantEntry<'a, K, V> {
     /// to the value.
     pub fn insert(self, value: V) -> &'a mut V {
         self.inner.insert(value)
+    }
+
+    /// Inserts the entry's key and the given value into the map, and returns an `OccupiedEntry`.
+    ///
+    /// Computes in **O(1)** time (amortized average).
+    pub fn insert_entry(self, value: V) -> OccupiedEntry<'a, K, V> {
+        OccupiedEntry {
+            inner: self.inner.insert_entry(value),
+        }
     }
 
     /// Inserts the entry's key and the given value into the map at its ordered
