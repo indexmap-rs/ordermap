@@ -1,5 +1,12 @@
 # Releases
 
+## 0.5.4 (2024-11-30)
+
+- Added methods `Entry::insert_entry` and `VacantEntry::insert_entry`, returning
+  an `OccupiedEntry` after insertion.
+- Updated the `indexmap` dependency to version 2.7.0, indirectly updating to
+  `hashbrown` version 0.15 as well.
+
 ## 0.5.3 (2024-08-30)
 
 - Added an `insert_before` method to `OrderMap` and `OrderSet`, as an
