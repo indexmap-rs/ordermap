@@ -1158,7 +1158,7 @@ where
     ///
     /// ***Panics*** if `key` is not present in the map.
     fn index(&self, key: &Q) -> &V {
-        self.get(key).expect("OrderMap: key not found")
+        self.get(key).expect("no entry found for key")
     }
 }
 
@@ -1200,7 +1200,7 @@ where
     ///
     /// ***Panics*** if `key` is not present in the map.
     fn index_mut(&mut self, key: &Q) -> &mut V {
-        self.get_mut(key).expect("OrderMap: key not found")
+        self.get_mut(key).expect("no entry found for key")
     }
 }
 
@@ -1244,7 +1244,12 @@ impl<K, V, S> Index<usize> for OrderMap<K, V, S> {
     /// ***Panics*** if `index` is out of bounds.
     fn index(&self, index: usize) -> &V {
         self.get_index(index)
-            .expect("OrderMap: index out of bounds")
+            .unwrap_or_else(|| {
+                panic!(
+                    "index out of bounds: the len is {len} but the index is {index}",
+                    len = self.len()
+                );
+            })
             .1
     }
 }
@@ -1283,8 +1288,12 @@ impl<K, V, S> IndexMut<usize> for OrderMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index_mut(&mut self, index: usize) -> &mut V {
+        let len: usize = self.len();
+
         self.get_index_mut(index)
-            .expect("OrderMap: index out of bounds")
+            .unwrap_or_else(|| {
+                panic!("index out of bounds: the len is {len} but the index is {index}");
+            })
             .1
     }
 }
