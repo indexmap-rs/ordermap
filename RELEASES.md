@@ -1,5 +1,10 @@
 # Releases
 
+## 0.5.5 (2025-01-19)
+
+- Added `#[track_caller]` to functions that may panic.
+- Updated the `indexmap` dependency to version 2.7.1.
+
 ## 0.5.4 (2024-11-30)
 
 - Added methods `Entry::insert_entry` and `VacantEntry::insert_entry`, returning
