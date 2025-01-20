@@ -62,20 +62,14 @@
 //!
 //! ```
 //! use fnv::FnvBuildHasher;
-//! use fxhash::FxBuildHasher;
 //! use ordermap::{OrderMap, OrderSet};
 //!
 //! type FnvOrderMap<K, V> = OrderMap<K, V, FnvBuildHasher>;
 //! type FnvOrderSet<T> = OrderSet<T, FnvBuildHasher>;
 //!
-//! type FxOrderMap<K, V> = OrderMap<K, V, FxBuildHasher>;
-//! type FxOrderSet<T> = OrderSet<T, FxBuildHasher>;
-//!
 //! let std: OrderSet<i32> = (0..100).collect();
 //! let fnv: FnvOrderSet<i32> = (0..100).collect();
-//! let fx: FxOrderSet<i32> = (0..100).collect();
 //! assert_eq!(std, fnv);
-//! assert_eq!(std, fx);
 //! ```
 //!
 //! ### Rust Version

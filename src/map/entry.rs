@@ -237,6 +237,7 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// ***Panics*** if `to` is out of bounds.
     ///
     /// Computes in **O(n)** time (average).
+    #[track_caller]
     pub fn move_index(self, to: usize) {
         self.inner.move_index(to);
     }
@@ -448,6 +449,7 @@ impl<'a, K, V> IndexedEntry<'a, K, V> {
     /// ***Panics*** if `to` is out of bounds.
     ///
     /// Computes in **O(n)** time (average).
+    #[track_caller]
     pub fn move_index(self, to: usize) {
         self.inner.move_index(to)
     }
