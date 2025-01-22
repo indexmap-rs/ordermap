@@ -44,7 +44,7 @@ borsh = ["dep:borsh", "indexmap/borsh"]
 debug = true
 
 [package.metadata.release]
-allow-branch = ["master"]
+allow-branch = ["main"]
 sign-tag = true
 tag-name = "{{version}}"
 

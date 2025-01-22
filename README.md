@@ -1,6 +1,6 @@
 # ordermap
 
-[![build status](https://github.com/indexmap-rs/ordermap/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/indexmap-rs/ordermap/actions)
+[![build status](https://github.com/indexmap-rs/ordermap/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/indexmap-rs/ordermap/actions)
 [![crates.io](https://img.shields.io/crates/v/ordermap.svg)](https://crates.io/crates/ordermap)
 [![docs](https://docs.rs/ordermap/badge.svg)](https://docs.rs/ordermap)
 [![rustc](https://img.shields.io/badge/rust-1.63%2B-orange.svg)](https://img.shields.io/badge/rust-1.63%2B-orange.svg)
@@ -60,4 +60,4 @@ which is roughly:
 
 # Recent Changes
 
-See [RELEASES.md](https://github.com/indexmap-rs/ordermap/blob/master/RELEASES.md).
+See [RELEASES.md](https://github.com/indexmap-rs/ordermap/blob/main/RELEASES.md).
