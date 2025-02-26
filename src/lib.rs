@@ -92,7 +92,8 @@
 //!   [`with_capacity_and_hasher`][OrderMap::with_capacity_and_hasher] instead.
 //!   A no-std compatible hasher will be needed as well, for example
 //!   from the crate `twox-hash`.
-//! - Macros [`ordermap!`] and [`orderset!`] are unavailable without `std`.
+//! - Macros [`ordermap!`] and [`orderset!`] are unavailable without `std`. Use
+//!   the macros [`ordermap_with_default!`] and [`orderset_with_default!`] instead.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
