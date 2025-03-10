@@ -1,5 +1,11 @@
 # Releases
 
+## 0.5.6 (2025-03-10)
+
+- Added `ordermap_with_default!` and `orderset_with_default!` to be used with
+  alternative hashers, especially when using the crate without `std`.
+- Updated the `indexmap` dependency to version 2.8.0.
+
 ## 0.5.5 (2025-01-19)
 
 - Added `#[track_caller]` to functions that may panic.
