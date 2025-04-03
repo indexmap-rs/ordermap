@@ -1,5 +1,5 @@
 /// Create an [`OrderMap`][crate::OrderMap] from a list of key-value pairs
-/// and a `BuildHasherDefault`-wrapped custom hasher.
+/// and a [`BuildHasherDefault`][core::hash::BuildHasherDefault]-wrapped custom hasher.
 ///
 /// ## Example
 ///
@@ -73,7 +73,7 @@ macro_rules! ordermap {
 }
 
 /// Create an [`OrderSet`][crate::OrderSet] from a list of values
-/// and a `BuildHasherDefault`-wrapped custom hasher.
+/// and a [`BuildHasherDefault`][core::hash::BuildHasherDefault]-wrapped custom hasher.
 ///
 /// ## Example
 ///
