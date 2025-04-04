@@ -1,5 +1,13 @@
 # Releases
 
+## 0.5.7 (2025-04-04)
+
+- Added a `get_disjoint_mut` method to `OrderMap`, matching Rust 1.86's
+  `HashMap` method.
+- Added a `get_disjoint_indices_mut` method to `OrderMap`, matching Rust 1.86's
+  `get_disjoint_mut` method on slices.
+- Updated the `indexmap` dependency to version 2.9.0.
+
 ## 0.5.6 (2025-03-10)
 
 - Added `ordermap_with_default!` and `orderset_with_default!` to be used with
