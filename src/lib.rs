@@ -116,4 +116,4 @@ pub mod set;
 
 pub use crate::map::OrderMap;
 pub use crate::set::OrderSet;
-pub use indexmap::{Equivalent, TryReserveError};
+pub use indexmap::{Equivalent, GetDisjointMutError, TryReserveError};
