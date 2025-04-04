@@ -548,7 +548,7 @@ fn drain_range() {
         20..30, // sweep everything
     ] {
         let mut vec = Vec::from_iter(0..100);
-        let mut map: IndexMap<i32, ()> = (0..100).map(|i| (i, ())).collect();
+        let mut map: OrderMap<i32, ()> = (0..100).map(|i| (i, ())).collect();
         drop(vec.drain(range.clone()));
         drop(map.drain(range));
         assert!(vec.iter().eq(map.keys()));
