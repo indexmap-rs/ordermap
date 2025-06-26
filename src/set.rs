@@ -18,7 +18,8 @@ mod tests;
 
 pub use self::mutable::MutableValues;
 pub use indexmap::set::{
-    Difference, Drain, Intersection, IntoIter, Iter, Slice, Splice, SymmetricDifference, Union,
+    Difference, Drain, ExtractIf, Intersection, IntoIter, Iter, Slice, Splice, SymmetricDifference,
+    Union,
 };
 
 #[cfg(feature = "rayon")]
@@ -231,6 +232,52 @@ impl<T, S> OrderSet<T, S> {
         R: RangeBounds<usize>,
     {
         self.inner.drain(range)
+    }
+
+    /// Creates an iterator which uses a closure to determine if a value should be removed,
+    /// for all values in the given range.
+    ///
+    /// If the closure returns true, then the value is removed and yielded.
+    /// If the closure returns false, the value will remain in the list and will not be yielded
+    /// by the iterator.
+    ///
+    /// The range may be any type that implements [`RangeBounds<usize>`],
+    /// including all of the `std::ops::Range*` types, or even a tuple pair of
+    /// `Bound` start and end values. To check the entire set, use `RangeFull`
+    /// like `set.extract_if(.., predicate)`.
+    ///
+    /// If the returned `ExtractIf` is not exhausted, e.g. because it is dropped without iterating
+    /// or the iteration short-circuits, then the remaining elements will be retained.
+    /// Use [`retain`] with a negated predicate if you do not need the returned iterator.
+    ///
+    /// [`retain`]: OrderSet::retain
+    ///
+    /// ***Panics*** if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the set.
+    ///
+    /// # Examples
+    ///
+    /// Splitting a set into even and odd values, reusing the original set:
+    ///
+    /// ```
+    /// use ordermap::OrderSet;
+    ///
+    /// let mut set: OrderSet<i32> = (0..8).collect();
+    /// let extracted: OrderSet<i32> = set.extract_if(.., |v| v % 2 == 0).collect();
+    ///
+    /// let evens = extracted.into_iter().collect::<Vec<_>>();
+    /// let odds = set.into_iter().collect::<Vec<_>>();
+    ///
+    /// assert_eq!(evens, vec![0, 2, 4, 6]);
+    /// assert_eq!(odds, vec![1, 3, 5, 7]);
+    /// ```
+    #[track_caller]
+    pub fn extract_if<F, R>(&mut self, range: R, pred: F) -> ExtractIf<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+        R: RangeBounds<usize>,
+    {
+        self.inner.extract_if(range, pred)
     }
 
     /// Splits the collection into two at the given index.
@@ -1039,12 +1086,14 @@ impl<T, S> Index<usize> for OrderSet<T, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index(&self, index: usize) -> &T {
-        self.get_index(index).unwrap_or_else(|| {
+        if let Some(value) = self.get_index(index) {
+            value
+        } else {
             panic!(
                 "index out of bounds: the len is {len} but the index is {index}",
                 len = self.len()
             );
-        })
+        }
     }
 }
 

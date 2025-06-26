@@ -28,8 +28,8 @@ pub use self::mutable::MutableEntryKey;
 pub use self::mutable::MutableKeys;
 pub use self::raw_entry_v1::RawEntryApiV1;
 pub use indexmap::map::{
-    Drain, IntoIter, IntoKeys, IntoValues, Iter, IterMut, IterMut2, Keys, Slice, Splice, Values,
-    ValuesMut,
+    Drain, ExtractIf, IntoIter, IntoKeys, IntoValues, Iter, IterMut, IterMut2, Keys, Slice, Splice,
+    Values, ValuesMut,
 };
 
 #[cfg(feature = "rayon")]
@@ -280,6 +280,55 @@ impl<K, V, S> OrderMap<K, V, S> {
         R: RangeBounds<usize>,
     {
         self.inner.drain(range)
+    }
+
+    /// Creates an iterator which uses a closure to determine if an element should be removed,
+    /// for all elements in the given range.
+    ///
+    /// If the closure returns true, the element is removed from the map and yielded.
+    /// If the closure returns false, or panics, the element remains in the map and will not be
+    /// yielded.
+    ///
+    /// Note that `extract_if` lets you mutate every value in the filter closure, regardless of
+    /// whether you choose to keep or remove it.
+    ///
+    /// The range may be any type that implements [`RangeBounds<usize>`],
+    /// including all of the `std::ops::Range*` types, or even a tuple pair of
+    /// `Bound` start and end values. To check the entire map, use `RangeFull`
+    /// like `map.extract_if(.., predicate)`.
+    ///
+    /// If the returned `ExtractIf` is not exhausted, e.g. because it is dropped without iterating
+    /// or the iteration short-circuits, then the remaining elements will be retained.
+    /// Use [`retain`] with a negated predicate if you do not need the returned iterator.
+    ///
+    /// [`retain`]: OrderMap::retain
+    ///
+    /// ***Panics*** if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the map.
+    ///
+    /// # Examples
+    ///
+    /// Splitting a map into even and odd keys, reusing the original map:
+    ///
+    /// ```
+    /// use ordermap::OrderMap;
+    ///
+    /// let mut map: OrderMap<i32, i32> = (0..8).map(|x| (x, x)).collect();
+    /// let extracted: OrderMap<i32, i32> = map.extract_if(.., |k, _v| k % 2 == 0).collect();
+    ///
+    /// let evens = extracted.keys().copied().collect::<Vec<_>>();
+    /// let odds = map.keys().copied().collect::<Vec<_>>();
+    ///
+    /// assert_eq!(evens, vec![0, 2, 4, 6]);
+    /// assert_eq!(odds, vec![1, 3, 5, 7]);
+    /// ```
+    #[track_caller]
+    pub fn extract_if<F, R>(&mut self, range: R, pred: F) -> ExtractIf<'_, K, V, F>
+    where
+        F: FnMut(&K, &mut V) -> bool,
+        R: RangeBounds<usize>,
+    {
+        self.inner.extract_if(range, pred)
     }
 
     /// Splits the collection into two at the given index.
@@ -1275,14 +1324,14 @@ impl<K, V, S> Index<usize> for OrderMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index(&self, index: usize) -> &V {
-        self.get_index(index)
-            .unwrap_or_else(|| {
-                panic!(
-                    "index out of bounds: the len is {len} but the index is {index}",
-                    len = self.len()
-                );
-            })
-            .1
+        if let Some((_, value)) = self.get_index(index) {
+            value
+        } else {
+            panic!(
+                "index out of bounds: the len is {len} but the index is {index}",
+                len = self.len()
+            );
+        }
     }
 }
 
@@ -1322,11 +1371,11 @@ impl<K, V, S> IndexMut<usize> for OrderMap<K, V, S> {
     fn index_mut(&mut self, index: usize) -> &mut V {
         let len: usize = self.len();
 
-        self.get_index_mut(index)
-            .unwrap_or_else(|| {
-                panic!("index out of bounds: the len is {len} but the index is {index}");
-            })
-            .1
+        if let Some((_, value)) = self.get_index_mut(index) {
+            value
+        } else {
+            panic!("index out of bounds: the len is {len} but the index is {index}");
+        }
     }
 }
 

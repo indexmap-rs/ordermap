@@ -520,6 +520,7 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// ***Panics*** if `to` is out of bounds.
     ///
     /// Computes in **O(n)** time (average).
+    #[track_caller]
     pub fn move_index(self, to: usize) {
         self.inner.move_index(to);
     }
@@ -532,6 +533,7 @@ impl<'a, K, V, S> RawOccupiedEntryMut<'a, K, V, S> {
     /// ***Panics*** if the `other` index is out of bounds.
     ///
     /// Computes in **O(1)** time (average).
+    #[track_caller]
     pub fn swap_indices(self, other: usize) {
         self.inner.swap_indices(other);
     }
@@ -577,6 +579,7 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
     /// ***Panics*** if `index` is out of bounds.
     ///
     /// Computes in **O(n)** time (average).
+    #[track_caller]
     pub fn shift_insert(self, index: usize, key: K, value: V) -> (&'a mut K, &'a mut V)
     where
         K: Hash,
@@ -591,6 +594,7 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
     /// ***Panics*** if `index` is out of bounds.
     ///
     /// Computes in **O(n)** time (average).
+    #[track_caller]
     pub fn shift_insert_hashed_nocheck(
         self,
         index: usize,
