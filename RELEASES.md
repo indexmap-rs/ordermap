@@ -1,5 +1,11 @@
 # Releases
 
+## 0.5.8 (2025-06-26)
+
+- Added `extract_if` methods to `OrderMap` and `OrderSet`, similar to the
+  methods for `HashMap` and `HashSet` with ranges like `Vec::extract_if`.
+- Added more `#[track_caller]` annotations to functions that may panic.
+
 ## 0.5.7 (2025-04-04)
 
 - Added a `get_disjoint_mut` method to `OrderMap`, matching Rust 1.86's
