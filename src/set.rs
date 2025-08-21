@@ -405,6 +405,47 @@ where
         self.inner.insert_sorted(value)
     }
 
+    /// Insert the value into the set at its ordered position among values
+    /// sorted by `cmp`.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by`][Self::binary_search_by], then calling
+    /// [`insert_before`][Self::insert_before].
+    ///
+    /// If the existing items are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the value
+    /// is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by<F>(&mut self, cmp: F, value: T) -> (usize, bool)
+    where
+        T: Ord,
+        F: FnMut(&T) -> Ordering,
+    {
+        let (Ok(i) | Err(i)) = self.binary_search_by(cmp);
+        self.insert_before(i, value)
+    }
+
+    /// Insert the value into the set at its ordered position among values
+    /// using a sort-key extraction function.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by_key`][Self::binary_search_by_key] with `sort_key(key)`,
+    /// then calling [`insert_before`][Self::insert_before].
+    ///
+    /// If the existing items are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the value
+    /// is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by_key<F, B>(&mut self, sort_key: F, value: T) -> (usize, bool)
+    where
+        B: Ord,
+        F: FnMut(&T) -> B,
+    {
+        self.inner.insert_sorted_by_key(value, sort_key)
+    }
+
     /// Insert the value into the set before the value at the given index, or at the end.
     ///
     /// If an equivalent item already exists in the set, it returns `false` leaving the

@@ -466,6 +466,52 @@ where
         self.inner.insert_sorted(key, value)
     }
 
+    /// Insert a key-value pair in the map at its ordered position among keys
+    /// sorted by `cmp`.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by`][Self::binary_search_by], then calling
+    /// [`insert_before`][Self::insert_before] with the given key and value.
+    ///
+    /// If the existing keys are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the key-value
+    /// pair is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by<F>(&mut self, cmp: F, key: K, value: V) -> (usize, Option<V>)
+    where
+        K: Ord,
+        F: FnMut(&K, &V) -> Ordering,
+    {
+        let (Ok(i) | Err(i)) = self.binary_search_by(cmp);
+        self.insert_before(i, key, value)
+    }
+
+    /// Insert a key-value pair in the map at its ordered position
+    /// using a sort-key extraction function.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by_key`][Self::binary_search_by_key] with `sort_key(key)`, then
+    /// calling [`insert_before`][Self::insert_before] with the given key and value.
+    ///
+    /// If the existing keys are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the key-value
+    /// pair is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by_key<F, B>(
+        &mut self,
+        sort_key: F,
+        key: K,
+        value: V,
+    ) -> (usize, Option<V>)
+    where
+        B: Ord,
+        F: FnMut(&K, &V) -> B,
+    {
+        self.inner.insert_sorted_by_key(key, value, sort_key)
+    }
+
     /// Insert a key-value pair in the map before the entry at the given index, or at the end.
     ///
     /// If an equivalent key already exists in the map: the key remains and
