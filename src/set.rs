@@ -900,6 +900,17 @@ impl<T, S> OrderSet<T, S> {
         self.inner.sorted_by(cmp)
     }
 
+    /// Sort the set's values in place using a key extraction function.
+    ///
+    /// Computes in **O(n log n)** time and **O(n)** space. The sort is stable.
+    pub fn sort_by_key<K, F>(&mut self, sort_key: F)
+    where
+        K: Ord,
+        F: FnMut(&T) -> K,
+    {
+        self.inner.sort_by_key(sort_key)
+    }
+
     /// Sort the set's values by their default ordering.
     ///
     /// See [`sort_unstable_by`](Self::sort_unstable_by) for details.
@@ -927,6 +938,17 @@ impl<T, S> OrderSet<T, S> {
         F: FnMut(&T, &T) -> Ordering,
     {
         self.inner.sorted_unstable_by(cmp)
+    }
+
+    /// Sort the set's values in place using a key extraction function.
+    ///
+    /// Computes in **O(n log n)** time. The sort is unstable.
+    pub fn sort_unstable_by_key<K, F>(&mut self, sort_key: F)
+    where
+        K: Ord,
+        F: FnMut(&T) -> K,
+    {
+        self.inner.sort_unstable_by_key(sort_key)
     }
 
     /// Sort the set's values in place using a key extraction function.

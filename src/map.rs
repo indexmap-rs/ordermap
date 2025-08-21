@@ -974,6 +974,18 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.sorted_by(cmp)
     }
 
+    /// Sort the map's key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Computes in **O(n log n + c)** time and **O(n)** space where *n* is
+    /// the length of the map and *c* the capacity. The sort is stable.
+    pub fn sort_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: FnMut(&K, &V) -> T,
+    {
+        self.inner.sort_by_key(sort_key)
+    }
+
     /// Sort the map's key-value pairs by the default ordering of the keys, but
     /// may not preserve the order of equal elements.
     ///
@@ -1010,6 +1022,18 @@ impl<K, V, S> OrderMap<K, V, S> {
         F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
         self.inner.sorted_unstable_by(cmp)
+    }
+
+    /// Sort the map's key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Computes in **O(n log n + c)** time where *n* is
+    /// the length of the map and *c* is the capacity. The sort is unstable.
+    pub fn sort_unstable_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: FnMut(&K, &V) -> T,
+    {
+        self.inner.sort_unstable_by_key(sort_key)
     }
 
     /// Sort the map's key-value pairs in place using a sort-key extraction function.

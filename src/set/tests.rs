@@ -769,6 +769,28 @@ fn first() {
 }
 
 #[test]
+fn sort_by_key() {
+    let mut index_set: OrderSet<i32> = OrderSet::new();
+    index_set.insert(3);
+    index_set.insert(1);
+    index_set.insert(2);
+    index_set.insert(0);
+    index_set.sort_by_key(|&x| -x);
+    assert_eq!(index_set.as_slice(), &[3, 2, 1, 0]);
+}
+
+#[test]
+fn sort_unstable_by_key() {
+    let mut index_set: OrderSet<i32> = OrderSet::new();
+    index_set.insert(3);
+    index_set.insert(1);
+    index_set.insert(2);
+    index_set.insert(0);
+    index_set.sort_unstable_by_key(|&x| -x);
+    assert_eq!(index_set.as_slice(), &[3, 2, 1, 0]);
+}
+
+#[test]
 fn sort_by_cached_key() {
     let mut index_set: OrderSet<i32> = OrderSet::new();
     index_set.insert(3);

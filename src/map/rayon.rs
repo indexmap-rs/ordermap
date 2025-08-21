@@ -155,6 +155,16 @@ where
         self.inner.par_sorted_by(cmp)
     }
 
+    /// Sort the map's key-value pairs in place and in parallel, using a sort-key extraction
+    /// function.
+    pub fn par_sort_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: Fn(&K, &V) -> T + Sync,
+    {
+        self.inner.par_sort_by_key(sort_key)
+    }
+
     /// Sort the map's key-value pairs in parallel, by the default ordering of the keys.
     pub fn par_sort_unstable_keys(&mut self)
     where
@@ -182,6 +192,16 @@ where
         F: Fn(&K, &V, &K, &V) -> Ordering + Sync,
     {
         self.inner.par_sorted_unstable_by(cmp)
+    }
+
+    /// Sort the map's key-value pairs in place and in parallel, using a sort-key extraction
+    /// function.
+    pub fn par_sort_unstable_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: Fn(&K, &V) -> T + Sync,
+    {
+        self.inner.par_sort_unstable_by_key(sort_key)
     }
 
     /// Sort the map's key-value pairs in place and in parallel, using a sort-key extraction
