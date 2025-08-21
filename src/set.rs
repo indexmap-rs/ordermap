@@ -417,13 +417,12 @@ where
     /// is moved to or inserted at that position regardless.
     ///
     /// Computes in **O(n)** time (average).
-    pub fn insert_sorted_by<F>(&mut self, cmp: F, value: T) -> (usize, bool)
+    pub fn insert_sorted_by<F>(&mut self, value: T, cmp: F) -> (usize, bool)
     where
         T: Ord,
-        F: FnMut(&T) -> Ordering,
+        F: FnMut(&T, &T) -> Ordering,
     {
-        let (Ok(i) | Err(i)) = self.binary_search_by(cmp);
-        self.insert_before(i, value)
+        self.inner.insert_sorted_by(value, cmp)
     }
 
     /// Insert the value into the set at its ordered position among values
@@ -438,7 +437,7 @@ where
     /// is moved to or inserted at that position regardless.
     ///
     /// Computes in **O(n)** time (average).
-    pub fn insert_sorted_by_key<F, B>(&mut self, sort_key: F, value: T) -> (usize, bool)
+    pub fn insert_sorted_by_key<B, F>(&mut self, value: T, sort_key: F) -> (usize, bool)
     where
         B: Ord,
         F: FnMut(&T) -> B,

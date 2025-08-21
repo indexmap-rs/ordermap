@@ -1214,14 +1214,14 @@ fn insert_sorted_by_key() {
     let mut values = [(-1, 8), (3, 18), (-27, 2), (-2, 5)];
     let mut map: OrderMap<i32, i32> = OrderMap::new();
     for (key, value) in values {
-        let (_, old) = map.insert_sorted_by_key(|k, _| k.abs(), key, value);
+        let (_, old) = map.insert_sorted_by_key(key, value, |k, _| k.abs());
         assert_eq!(old, None);
     }
     values.sort_by_key(|(key, _)| key.abs());
     assert_eq!(values, *map.as_slice());
 
     for (key, value) in &mut values {
-        let (_, old) = map.insert_sorted_by_key(|k, _| k.abs(), *key, -*value);
+        let (_, old) = map.insert_sorted_by_key(*key, -*value, |k, _| k.abs());
         assert_eq!(old, Some(*value));
         *value = -*value;
     }
@@ -1233,14 +1233,14 @@ fn insert_sorted_by() {
     let mut values = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)];
     let mut map: OrderMap<i32, i32> = OrderMap::new();
     for (key, value) in values {
-        let (_, old) = map.insert_sorted_by(|probe, _| key.cmp(probe), key, value);
+        let (_, old) = map.insert_sorted_by(key, value, |key1, _, key2, _| key2.cmp(key1));
         assert_eq!(old, None);
     }
     values.reverse();
     assert_eq!(values, *map.as_slice());
 
     for (key, value) in &mut values {
-        let (_, old) = map.insert_sorted_by(|probe, _| (*key).cmp(probe), *key, -*value);
+        let (_, old) = map.insert_sorted_by(*key, -*value, |key1, _, key2, _| key2.cmp(key1));
         assert_eq!(old, Some(*value));
         *value = -*value;
     }

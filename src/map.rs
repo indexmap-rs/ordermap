@@ -478,13 +478,12 @@ where
     /// pair is moved to or inserted at that position regardless.
     ///
     /// Computes in **O(n)** time (average).
-    pub fn insert_sorted_by<F>(&mut self, cmp: F, key: K, value: V) -> (usize, Option<V>)
+    pub fn insert_sorted_by<F>(&mut self, key: K, value: V, cmp: F) -> (usize, Option<V>)
     where
         K: Ord,
-        F: FnMut(&K, &V) -> Ordering,
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
-        let (Ok(i) | Err(i)) = self.binary_search_by(cmp);
-        self.insert_before(i, key, value)
+        self.inner.insert_sorted_by(key, value, cmp)
     }
 
     /// Insert a key-value pair in the map at its ordered position
@@ -499,11 +498,11 @@ where
     /// pair is moved to or inserted at that position regardless.
     ///
     /// Computes in **O(n)** time (average).
-    pub fn insert_sorted_by_key<F, B>(
+    pub fn insert_sorted_by_key<B, F>(
         &mut self,
-        sort_key: F,
         key: K,
         value: V,
+        sort_key: F,
     ) -> (usize, Option<V>)
     where
         B: Ord,
