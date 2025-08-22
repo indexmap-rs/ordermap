@@ -955,7 +955,7 @@ impl<T, S> OrderSet<T, S> {
     ///
     /// During sorting, the function is called at most once per entry, by using temporary storage
     /// to remember the results of its evaluation. The order of calls to the function is
-    /// unspecified and may change between versions of `indexmap` or the standard library.
+    /// unspecified and may change between versions of `ordermap` or the standard library.
     ///
     /// Computes in **O(m n + n log n + c)** time () and **O(n)** space, where the function is
     /// **O(m)**, *n* is the length of the map, and *c* the capacity. The sort is stable.
