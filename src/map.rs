@@ -466,6 +466,51 @@ where
         self.inner.insert_sorted(key, value)
     }
 
+    /// Insert a key-value pair in the map at its ordered position among keys
+    /// sorted by `cmp`.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by`][Self::binary_search_by], then calling
+    /// [`insert_before`][Self::insert_before] with the given key and value.
+    ///
+    /// If the existing keys are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the key-value
+    /// pair is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by<F>(&mut self, key: K, value: V, cmp: F) -> (usize, Option<V>)
+    where
+        K: Ord,
+        F: FnMut(&K, &V, &K, &V) -> Ordering,
+    {
+        self.inner.insert_sorted_by(key, value, cmp)
+    }
+
+    /// Insert a key-value pair in the map at its ordered position
+    /// using a sort-key extraction function.
+    ///
+    /// This is equivalent to finding the position with
+    /// [`binary_search_by_key`][Self::binary_search_by_key] with `sort_key(key)`, then
+    /// calling [`insert_before`][Self::insert_before] with the given key and value.
+    ///
+    /// If the existing keys are **not** already sorted, then the insertion
+    /// index is unspecified (like [`slice::binary_search`]), but the key-value
+    /// pair is moved to or inserted at that position regardless.
+    ///
+    /// Computes in **O(n)** time (average).
+    pub fn insert_sorted_by_key<B, F>(
+        &mut self,
+        key: K,
+        value: V,
+        sort_key: F,
+    ) -> (usize, Option<V>)
+    where
+        B: Ord,
+        F: FnMut(&K, &V) -> B,
+    {
+        self.inner.insert_sorted_by_key(key, value, sort_key)
+    }
+
     /// Insert a key-value pair in the map before the entry at the given index, or at the end.
     ///
     /// If an equivalent key already exists in the map: the key remains and
@@ -581,7 +626,27 @@ where
         self.inner.shift_insert(index, key, value)
     }
 
-    /// Get the given key’s corresponding entry in the map for insertion and/or
+    /// Replaces the key at the given index. The new key does not need to be
+    /// equivalent to the one it is replacing, but it must be unique to the rest
+    /// of the map.
+    ///
+    /// Returns `Ok(old_key)` if successful, or `Err((other_index, key))` if an
+    /// equivalent key already exists at a different index. The map will be
+    /// unchanged in the error case.
+    ///
+    /// Direct indexing can be used to change the corresponding value: simply
+    /// `map[index] = value`, or `mem::replace(&mut map[index], value)` to
+    /// retrieve the old value as well.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    ///
+    /// Computes in **O(1)** time (average).
+    #[track_caller]
+    pub fn replace_index(&mut self, index: usize, key: K) -> Result<K, (usize, K)> {
+        self.inner.replace_index(index, key)
+    }
+
+    /// Get the given key's corresponding entry in the map for insertion and/or
     /// in-place manipulation.
     ///
     /// Computes in **O(1)** time (amortized average).
@@ -869,7 +934,7 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.retain(keep);
     }
 
-    /// Sort the map’s key-value pairs by the default ordering of the keys.
+    /// Sort the map's key-value pairs by the default ordering of the keys.
     ///
     /// This is a stable sort -- but equivalent keys should not normally coexist in
     /// a map at all, so [`sort_unstable_keys`][Self::sort_unstable_keys] is preferred
@@ -883,7 +948,7 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.sort_keys();
     }
 
-    /// Sort the map’s key-value pairs in place using the comparison
+    /// Sort the map's key-value pairs in place using the comparison
     /// function `cmp`.
     ///
     /// The comparison function receives two key and value pairs to compare (you
@@ -907,6 +972,18 @@ impl<K, V, S> OrderMap<K, V, S> {
         F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
         self.inner.sorted_by(cmp)
+    }
+
+    /// Sort the map's key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Computes in **O(n log n + c)** time and **O(n)** space where *n* is
+    /// the length of the map and *c* the capacity. The sort is stable.
+    pub fn sort_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: FnMut(&K, &V) -> T,
+    {
+        self.inner.sort_by_key(sort_key)
     }
 
     /// Sort the map's key-value pairs by the default ordering of the keys, but
@@ -947,7 +1024,19 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.sorted_unstable_by(cmp)
     }
 
-    /// Sort the map’s key-value pairs in place using a sort-key extraction function.
+    /// Sort the map's key-value pairs in place using a sort-key extraction function.
+    ///
+    /// Computes in **O(n log n + c)** time where *n* is
+    /// the length of the map and *c* is the capacity. The sort is unstable.
+    pub fn sort_unstable_by_key<T, F>(&mut self, sort_key: F)
+    where
+        T: Ord,
+        F: FnMut(&K, &V) -> T,
+    {
+        self.inner.sort_unstable_by_key(sort_key)
+    }
+
+    /// Sort the map's key-value pairs in place using a sort-key extraction function.
     ///
     /// During sorting, the function is called at most once per entry, by using temporary storage
     /// to remember the results of its evaluation. The order of calls to the function is
@@ -1006,6 +1095,34 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.binary_search_by_key(b, f)
     }
 
+    /// Checks if the keys of this map are sorted.
+    #[inline]
+    pub fn is_sorted(&self) -> bool
+    where
+        K: PartialOrd,
+    {
+        self.inner.is_sorted()
+    }
+
+    /// Checks if this map is sorted using the given comparator function.
+    #[inline]
+    pub fn is_sorted_by<'a, F>(&'a self, cmp: F) -> bool
+    where
+        F: FnMut(&'a K, &'a V, &'a K, &'a V) -> bool,
+    {
+        self.inner.is_sorted_by(cmp)
+    }
+
+    /// Checks if this map is sorted using the given sort-key function.
+    #[inline]
+    pub fn is_sorted_by_key<'a, F, T>(&'a self, sort_key: F) -> bool
+    where
+        F: FnMut(&'a K, &'a V) -> T,
+        T: PartialOrd,
+    {
+        self.inner.is_sorted_by_key(sort_key)
+    }
+
     /// Returns the index of the partition point of a sorted map according to the given predicate
     /// (the index of the first element of the second partition).
     ///
@@ -1020,7 +1137,7 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.partition_point(pred)
     }
 
-    /// Reverses the order of the map’s key-value pairs in place.
+    /// Reverses the order of the map's key-value pairs in place.
     ///
     /// Computes in **O(n)** time and **O(1)** space.
     pub fn reverse(&mut self) {

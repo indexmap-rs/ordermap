@@ -1,5 +1,17 @@
 # Releases
 
+## 0.5.9 (2025-08-22)
+
+- Added `insert_sorted_by` and `insert_sorted_by_key` methods to `OrderMap`,
+  `OrderSet`, and `VacantEntry`, like customizable versions of `insert_sorted`.
+- Added `is_sorted`, `is_sorted_by`, and `is_sorted_by_key` methods to
+  `OrderMap` and `OrderSet`, as well as their `Slice` counterparts.
+- Added `sort_by_key` and `sort_unstable_by_key` methods to `OrderMap` and
+  `OrderSet`, as well as parallel counterparts.
+- Added `replace_index` methods to `OrderMap`, `OrderSet`, and `VacantEntry`
+  to replace the key (or set value) at a given index.
+- Added optional `sval` serialization support.
+
 ## 0.5.8 (2025-06-26)
 
 - Added `extract_if` methods to `OrderMap` and `OrderSet`, similar to the

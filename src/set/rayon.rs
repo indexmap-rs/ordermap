@@ -176,7 +176,7 @@ impl<T, S> OrderSet<T, S>
 where
     T: Send,
 {
-    /// Sort the set’s values in parallel by their default ordering.
+    /// Sort the set's values in parallel by their default ordering.
     pub fn par_sort(&mut self)
     where
         T: Ord,
@@ -184,7 +184,7 @@ where
         self.inner.par_sort();
     }
 
-    /// Sort the set’s values in place and in parallel, using the comparison function `cmp`.
+    /// Sort the set's values in place and in parallel, using the comparison function `cmp`.
     pub fn par_sort_by<F>(&mut self, cmp: F)
     where
         F: Fn(&T, &T) -> Ordering + Sync,
@@ -201,6 +201,15 @@ where
         self.inner.par_sorted_by(cmp)
     }
 
+    /// Sort the set's values in place and in parallel, using a key extraction function.
+    pub fn par_sort_by_key<K, F>(&mut self, sort_key: F)
+    where
+        K: Ord,
+        F: Fn(&T) -> K + Sync,
+    {
+        self.inner.par_sort_by_key(sort_key)
+    }
+
     /// Sort the set's values in parallel by their default ordering.
     pub fn par_sort_unstable(&mut self)
     where
@@ -209,7 +218,7 @@ where
         self.inner.par_sort_unstable();
     }
 
-    /// Sort the set’s values in place and in parallel, using the comparison function `cmp`.
+    /// Sort the set's values in place and in parallel, using the comparison function `cmp`.
     pub fn par_sort_unstable_by<F>(&mut self, cmp: F)
     where
         F: Fn(&T, &T) -> Ordering + Sync,
@@ -226,7 +235,16 @@ where
         self.inner.par_sorted_unstable_by(cmp)
     }
 
-    /// Sort the set’s values in place and in parallel, using a key extraction function.
+    /// Sort the set's values in place and in parallel, using a key extraction function.
+    pub fn par_sort_unstable_by_key<K, F>(&mut self, sort_key: F)
+    where
+        K: Ord,
+        F: Fn(&T) -> K + Sync,
+    {
+        self.inner.par_sort_unstable_by_key(sort_key)
+    }
+
+    /// Sort the set's values in place and in parallel, using a key extraction function.
     pub fn par_sort_by_cached_key<K, F>(&mut self, sort_key: F)
     where
         K: Ord + Send,
