@@ -581,6 +581,26 @@ where
         self.inner.shift_insert(index, key, value)
     }
 
+    /// Replaces the key at the given index. The new key does not need to be
+    /// equivalent to the one it is replacing, but it must be unique to the rest
+    /// of the map.
+    ///
+    /// Returns `Ok(old_key)` if successful, or `Err((other_index, key))` if an
+    /// equivalent key already exists at a different index. The map will be
+    /// unchanged in the error case.
+    ///
+    /// Direct indexing can be used to change the corresponding value: simply
+    /// `map[index] = value`, or `mem::replace(&mut map[index], value)` to
+    /// retrieve the old value as well.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    ///
+    /// Computes in **O(1)** time (average).
+    #[track_caller]
+    pub fn replace_index(&mut self, index: usize, key: K) -> Result<K, (usize, K)> {
+        self.inner.replace_index(index, key)
+    }
+
     /// Get the given key’s corresponding entry in the map for insertion and/or
     /// in-place manipulation.
     ///
