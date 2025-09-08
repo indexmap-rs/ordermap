@@ -480,7 +480,6 @@ where
     /// Computes in **O(n)** time (average).
     pub fn insert_sorted_by<F>(&mut self, key: K, value: V, cmp: F) -> (usize, Option<V>)
     where
-        K: Ord,
         F: FnMut(&K, &V, &K, &V) -> Ordering,
     {
         self.inner.insert_sorted_by(key, value, cmp)
