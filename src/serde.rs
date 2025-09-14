@@ -2,9 +2,9 @@
 
 use crate::{OrderMap, OrderSet};
 use core::hash::{BuildHasher, Hash};
-use serde::de::value::{MapDeserializer, SeqDeserializer};
-use serde::de::{Deserialize, Deserializer, Error, IntoDeserializer};
-use serde::ser::{Serialize, Serializer};
+use serde_core::de::value::{MapDeserializer, SeqDeserializer};
+use serde_core::de::{Deserialize, Deserializer, Error, IntoDeserializer};
+use serde_core::ser::{Serialize, Serializer};
 
 impl<K, V, S> Serialize for OrderMap<K, V, S>
 where

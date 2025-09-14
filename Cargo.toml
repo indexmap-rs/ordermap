@@ -14,21 +14,26 @@ rust-version = "1.63"
 bench = false
 
 [dependencies]
-indexmap = { version = "2.11.1", default-features = false }
+indexmap = { version = "2.11.2", default-features = false }
 
 arbitrary = { version = "1.0", optional = true, default-features = false }
 quickcheck = { version = "1.0", optional = true, default-features = false }
-serde = { version = "1.0", optional = true, default-features = false }
+serde_core = { version = "1.0.220", optional = true, default-features = false }
 borsh = { version = "1.5.6", optional = true, default-features = false }
 rayon = { version = "1.9", optional = true }
 sval = { version = "2", optional = true, default-features = false }
+
+# serde v1.0.220 is the first version that released with `serde_core`.
+# This is required to avoid conflict with other `serde` users which may require an older version.
+[target.'cfg(any())'.dependencies]
+serde = { version = "1.0.220", default-features = false }
 
 [dev-dependencies]
 itertools = "0.14"
 fastrand = { version = "2", default-features = false }
 quickcheck = { version = "1.0", default-features = false }
 fnv = "1.0"
-serde_derive = "1.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [features]
 default = ["std"]
@@ -37,7 +42,7 @@ std = ["indexmap/std"]
 arbitrary = ["dep:arbitrary", "indexmap/arbitrary"]
 quickcheck = ["dep:quickcheck", "indexmap/quickcheck"]
 rayon = ["dep:rayon", "indexmap/rayon"]
-serde = ["dep:serde", "indexmap/serde"]
+serde = ["dep:serde_core", "indexmap/serde"]
 sval = ["dep:sval", "indexmap/sval"]
 borsh = ["dep:borsh", "borsh/indexmap"]
 
