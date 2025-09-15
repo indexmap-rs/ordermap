@@ -9,7 +9,7 @@
 //!
 //! ```
 //! # use ordermap::OrderMap;
-//! # use serde_derive::{Deserialize, Serialize};
+//! # use serde::{Deserialize, Serialize};
 //! #[derive(Deserialize, Serialize)]
 //! struct Data {
 //!     #[serde(with = "ordermap::map::serde_seq")]
@@ -21,8 +21,8 @@
 use crate::OrderMap;
 use core::hash::{BuildHasher, Hash};
 use indexmap::map::serde_seq as ix;
-use serde::de::{Deserialize, Deserializer};
-use serde::ser::{Serialize, Serializer};
+use serde_core::de::{Deserialize, Deserializer};
+use serde_core::ser::{Serialize, Serializer};
 
 /// Serializes an [`OrderMap`] as an ordered sequence.
 ///
@@ -30,7 +30,7 @@ use serde::ser::{Serialize, Serializer};
 ///
 /// ```
 /// # use ordermap::OrderMap;
-/// # use serde_derive::Serialize;
+/// # use serde::Serialize;
 /// #[derive(Serialize)]
 /// struct Data {
 ///     #[serde(serialize_with = "ordermap::map::serde_seq::serialize")]
@@ -53,7 +53,7 @@ where
 ///
 /// ```
 /// # use ordermap::OrderMap;
-/// # use serde_derive::Deserialize;
+/// # use serde::Deserialize;
 /// #[derive(Deserialize)]
 /// struct Data {
 ///     #[serde(deserialize_with = "ordermap::map::serde_seq::deserialize")]
