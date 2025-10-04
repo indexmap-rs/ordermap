@@ -37,7 +37,7 @@ use indexmap::IndexSet;
 use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
-use std::collections::hash_map::RandomState;
+use std::hash::RandomState;
 
 use crate::{Equivalent, TryReserveError};
 

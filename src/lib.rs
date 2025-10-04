@@ -55,7 +55,7 @@
 //! ### Alternate Hashers
 //!
 //! [`OrderMap`] and [`OrderSet`] have a default hasher type
-//! [`S = RandomState`][std::collections::hash_map::RandomState],
+//! [`S = RandomState`][std::hash::RandomState],
 //! just like the standard `HashMap` and `HashSet`, which is resistant to
 //! HashDoS attacks but not the most performant. Type aliases can make it easier
 //! to use alternate hashers:
