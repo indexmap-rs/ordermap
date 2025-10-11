@@ -941,6 +941,31 @@ impl<K, V, S> OrderMap<K, V, S> {
         self.inner.pop()
     }
 
+    /// Removes and returns the last key-value pair from a map if the predicate
+    /// returns `true`, or [`None`] if the predicate returns false or the map
+    /// is empty (the predicate will not be called in that case).
+    ///
+    /// This preserves the order of the remaining elements.
+    ///
+    /// Computes in **O(1)** time (average).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ordermap::OrderMap;
+    ///
+    /// let init = [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')];
+    /// let mut map = OrderMap::from(init);
+    /// let pred = |key: &i32, _value: &mut char| *key % 2 == 0;
+    ///
+    /// assert_eq!(map.pop_if(pred), Some((4, 'd')));
+    /// assert_eq!(map.as_slice(), &init[..3]);
+    /// assert_eq!(map.pop_if(pred), None);
+    /// ```
+    pub fn pop_if(&mut self, predicate: impl FnOnce(&K, &mut V) -> bool) -> Option<(K, V)> {
+        self.inner.pop_if(predicate)
+    }
+
     /// Scan through each key-value pair in the map and keep those where the
     /// closure `keep` returns `true`.
     ///
