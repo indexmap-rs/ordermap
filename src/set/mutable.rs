@@ -16,7 +16,8 @@ use indexmap::set::MutableValues as _;
 /// `use` this trait to enable its methods for `OrderSet`.
 ///
 /// This trait is sealed and cannot be implemented for types outside this crate.
-pub trait MutableValues: private::Sealed {
+#[expect(private_bounds)]
+pub trait MutableValues: Sealed {
     type Value;
 
     /// Return item index and mutable reference to the value
@@ -72,8 +73,6 @@ where
     }
 }
 
-mod private {
-    pub trait Sealed {}
+trait Sealed {}
 
-    impl<T, S> Sealed for super::OrderSet<T, S> {}
-}
+impl<T, S> Sealed for OrderSet<T, S> {}
