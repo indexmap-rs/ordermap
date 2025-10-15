@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-#![warn(rust_2018_idioms)]
 #![no_std]
 
 //! [`OrderMap`] is a hash table where the iteration order of the key-value

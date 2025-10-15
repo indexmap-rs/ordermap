@@ -66,6 +66,9 @@ private-bounds = "deny"
 private-interfaces = "deny"
 unnameable-types = "deny"
 unreachable-pub = "deny"
+unsafe-code = "deny"
+
+rust-2018-idioms = "warn"
 
 [lints.clippy]
 style = "allow"
