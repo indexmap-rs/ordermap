@@ -37,7 +37,7 @@ use indexmap::IndexSet;
 use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
-use std::collections::hash_map::RandomState;
+use std::hash::RandomState;
 
 use crate::{Equivalent, TryReserveError};
 
@@ -848,6 +848,30 @@ impl<T, S> OrderSet<T, S> {
     #[doc(alias = "pop_last")] // like `BTreeSet`
     pub fn pop(&mut self) -> Option<T> {
         self.inner.pop()
+    }
+
+    /// Removes and returns the last value from a set if the predicate
+    /// returns `true`, or [`None`] if the predicate returns false or the set
+    /// is empty (the predicate will not be called in that case).
+    ///
+    /// This preserves the order of the remaining elements.
+    ///
+    /// Computes in **O(1)** time (average).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ordermap::OrderSet;
+    ///
+    /// let mut set = OrderSet::from([1, 2, 3, 4]);
+    /// let pred = |x: &i32| *x % 2 == 0;
+    ///
+    /// assert_eq!(set.pop_if(pred), Some(4));
+    /// assert_eq!(set.as_slice(), &[1, 2, 3]);
+    /// assert_eq!(set.pop_if(pred), None);
+    /// ```
+    pub fn pop_if(&mut self, predicate: impl FnOnce(&T) -> bool) -> Option<T> {
+        self.inner.pop_if(predicate)
     }
 
     /// Scan through each value in the set and keep those where the

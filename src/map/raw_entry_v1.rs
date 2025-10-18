@@ -21,7 +21,8 @@ use alloc::vec::Vec;
 /// Opt-in access to the experimental raw entry API.
 ///
 /// See the [`raw_entry_v1`][self] module documentation for more information.
-pub trait RawEntryApiV1<K, V, S>: private::Sealed {
+#[expect(private_bounds)]
+pub trait RawEntryApiV1<K, V, S>: Sealed {
     /// Creates a raw immutable entry builder for the [`OrderMap`].
     ///
     /// Raw entries provide the lowest level of control for searching and
@@ -42,21 +43,14 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// # Examples
     ///
     /// ```
-    /// use core::hash::{BuildHasher, Hash};
+    /// use core::hash::BuildHasher;
     /// use ordermap::map::{OrderMap, RawEntryApiV1};
     ///
     /// let mut map = OrderMap::new();
     /// map.extend([("a", 100), ("b", 200), ("c", 300)]);
     ///
-    /// fn compute_hash<K: Hash + ?Sized, S: BuildHasher>(hash_builder: &S, key: &K) -> u64 {
-    ///     use core::hash::Hasher;
-    ///     let mut state = hash_builder.build_hasher();
-    ///     key.hash(&mut state);
-    ///     state.finish()
-    /// }
-    ///
     /// for k in ["a", "b", "c", "d", "e", "f"] {
-    ///     let hash = compute_hash(map.hasher(), k);
+    ///     let hash = map.hasher().hash_one(k);
     ///     let i = map.get_index_of(k);
     ///     let v = map.get(k);
     ///     let kv = map.get_key_value(k);
@@ -103,19 +97,12 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// # Examples
     ///
     /// ```
-    /// use core::hash::{BuildHasher, Hash};
+    /// use core::hash::BuildHasher;
     /// use ordermap::map::{OrderMap, RawEntryApiV1};
     /// use ordermap::map::raw_entry_v1::RawEntryMut;
     ///
     /// let mut map = OrderMap::new();
     /// map.extend([("a", 100), ("b", 200), ("c", 300)]);
-    ///
-    /// fn compute_hash<K: Hash + ?Sized, S: BuildHasher>(hash_builder: &S, key: &K) -> u64 {
-    ///     use core::hash::Hasher;
-    ///     let mut state = hash_builder.build_hasher();
-    ///     key.hash(&mut state);
-    ///     state.finish()
-    /// }
     ///
     /// // Existing key (insert and update)
     /// match map.raw_entry_mut_v1().from_key("a") {
@@ -134,7 +121,7 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     /// assert_eq!(map.len(), 3);
     ///
     /// // Existing key (take)
-    /// let hash = compute_hash(map.hasher(), "c");
+    /// let hash = map.hasher().hash_one("c");
     /// match map.raw_entry_mut_v1().from_key_hashed_nocheck(hash, "c") {
     ///     RawEntryMut::Vacant(_) => unreachable!(),
     ///     RawEntryMut::Occupied(view) => {
@@ -147,7 +134,7 @@ pub trait RawEntryApiV1<K, V, S>: private::Sealed {
     ///
     /// // Nonexistent key (insert and update)
     /// let key = "d";
-    /// let hash = compute_hash(map.hasher(), key);
+    /// let hash = map.hasher().hash_one(key);
     /// match map.raw_entry_mut_v1().from_hash(hash, |q| *q == key) {
     ///     RawEntryMut::Occupied(_) => unreachable!(),
     ///     RawEntryMut::Vacant(view) => {
@@ -607,8 +594,6 @@ impl<'a, K, V, S> RawVacantEntryMut<'a, K, V, S> {
     }
 }
 
-mod private {
-    pub trait Sealed {}
+trait Sealed {}
 
-    impl<K, V, S> Sealed for super::OrderMap<K, V, S> {}
-}
+impl<K, V, S> Sealed for OrderMap<K, V, S> {}

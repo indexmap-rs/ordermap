@@ -1,5 +1,12 @@
 # Releases
 
+## 1.0.0 (2025-10-17)
+
+- **MSRV**: Rust 1.82.0 or later is now required.
+- Updated the `indexmap` dependency to version 2.12.0.
+- Added `pop_if` methods to `OrderMap` and `OrderSet`, similar to the
+  method for `Vec` added in Rust 1.86.
+
 ## 0.5.12 (2025-09-15)
 
 - Make the minimum `serde` version only apply when "serde" is enabled.

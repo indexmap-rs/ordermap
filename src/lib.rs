@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-#![warn(rust_2018_idioms)]
 #![no_std]
 
 //! [`OrderMap`] is a hash table where the iteration order of the key-value
@@ -55,7 +53,7 @@
 //! ### Alternate Hashers
 //!
 //! [`OrderMap`] and [`OrderSet`] have a default hasher type
-//! [`S = RandomState`][std::collections::hash_map::RandomState],
+//! [`S = RandomState`][std::hash::RandomState],
 //! just like the standard `HashMap` and `HashSet`, which is resistant to
 //! HashDoS attacks but not the most performant. Type aliases can make it easier
 //! to use alternate hashers:
@@ -74,10 +72,10 @@
 //!
 //! ### Rust Version
 //!
-//! This version of ordermap requires Rust 1.63 or later.
+//! This version of ordermap requires Rust 1.82 or later.
 //!
-//! The ordermap 0.x release series will use a carefully considered version
-//! upgrade policy, where in a later 0.x version, we will raise the minimum
+//! The ordermap 1.x release series will use a carefully considered version
+//! upgrade policy, where in a later 1.x version, we will raise the minimum
 //! required Rust version.
 //!
 //! ## No Standard Library Targets
