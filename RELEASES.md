@@ -1,5 +1,12 @@
 # Releases
 
+## 1.1.0 (2026-01-07)
+
+- Updated the `indexmap` dependency to version 2.13.0 for new features:
+  - Implemented `Clone` for `IntoKeys` and `IntoValues`.
+  - Added `map::Slice::split_at_checked` and `split_at_mut_checked`.
+  - Added `set::Slice::split_at_checked`.
+
 ## 1.0.0 (2025-10-17)
 
 - **MSRV**: Rust 1.82.0 or later is now required.
