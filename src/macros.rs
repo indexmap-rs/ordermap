@@ -23,7 +23,7 @@
 macro_rules! ordermap_with_default {
     ($H:ty; $($key:expr => $value:expr,)+) => { $crate::ordermap_with_default!($H; $($key => $value),+) };
     ($H:ty; $($key:expr => $value:expr),*) => {{
-        let builder = ::core::hash::BuildHasherDefault::<$H>::default();
+        let builder = ::core::hash::BuildHasherDefault::<$H>::new();
         const CAP: usize = <[()]>::len(&[$({ stringify!($key); }),*]);
         #[allow(unused_mut)]
         // Specify your custom `H` (must implement Default + Hasher) as the hasher:
