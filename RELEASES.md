@@ -1,5 +1,11 @@
 # Releases
 
+## 1.2.0 (2026-02-09)
+
+- **MSRV**: Rust 1.85.0 or later is now required.
+- Updated the `indexmap` dependency to version 2.14.0.
+  - New features include `const`-ified methods on `Slice` types.
+
 ## 1.1.0 (2026-01-07)
 
 - Updated the `indexmap` dependency to version 2.13.0 for new features:

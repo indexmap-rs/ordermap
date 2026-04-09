@@ -72,7 +72,7 @@
 //!
 //! ### Rust Version
 //!
-//! This version of ordermap requires Rust 1.82 or later.
+//! This version of ordermap requires Rust 1.85 or later.
 //!
 //! The ordermap 1.x release series will use a carefully considered version
 //! upgrade policy, where in a later 1.x version, we will raise the minimum

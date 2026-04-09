@@ -12,8 +12,8 @@
 use crate::{Equivalent, OrderMap};
 use core::fmt;
 use core::hash::{BuildHasher, Hash};
-use indexmap::map::raw_entry_v1 as ix;
 use indexmap::map::RawEntryApiV1 as _;
+use indexmap::map::raw_entry_v1 as ix;
 
 #[cfg(doc)]
 use alloc::vec::Vec;
