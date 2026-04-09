@@ -1,5 +1,5 @@
-use ordermap::ordermap;
 use ordermap::Equivalent;
+use ordermap::ordermap;
 
 use std::hash::Hash;
 

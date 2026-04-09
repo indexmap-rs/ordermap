@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use fnv::FnvBuildHasher;
-use ordermap::{ordermap, orderset, OrderMap, OrderSet};
-use sval_test::{assert_tokens, Token};
+use ordermap::{OrderMap, OrderSet, ordermap, orderset};
+use sval_test::{Token, assert_tokens};
 
 #[test]
 fn test_sval_map() {
