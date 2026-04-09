@@ -97,7 +97,7 @@ macro_rules! ordermap {
 macro_rules! orderset_with_default {
     ($H:ty; $($value:expr,)+) => { $crate::orderset_with_default!($H; $($value),+) };
     ($H:ty; $($value:expr),*) => {{
-        let builder = ::core::hash::BuildHasherDefault::<$H>::default();
+        let builder = ::core::hash::BuildHasherDefault::<$H>::new();
         const CAP: usize = <[()]>::len(&[$({ stringify!($value); }),*]);
         #[allow(unused_mut)]
         // Specify your custom `H` (must implement Default + Hash) as the hasher:
