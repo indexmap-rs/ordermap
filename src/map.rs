@@ -820,7 +820,10 @@ where
     ///
     /// ```
     /// let mut map = ordermap::OrderMap::from([(1, 'a'), (3, 'b'), (2, 'c')]);
-    /// assert_eq!(map.get_disjoint_mut([&2, &1]), [Some(&mut 'c'), Some(&mut 'a')]);
+    /// assert_eq!(
+    ///   map.get_disjoint_mut([&2, &1, &0]),
+    ///   [Some(&mut 'c'), Some(&mut 'a'), None],
+    /// );
     /// ```
     #[track_caller]
     pub fn get_disjoint_mut<Q, const N: usize>(&mut self, keys: [&Q; N]) -> [Option<&mut V>; N]
