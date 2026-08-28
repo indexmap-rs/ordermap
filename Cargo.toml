@@ -70,7 +70,7 @@ unreachable_pub = "deny"
 # We *mostly* avoid unsafe code, but there are a few fine-grained cases allowed
 unsafe_code = "deny"
 
-rust_2018_idioms = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
 
 [lints.clippy]
 style = "allow"
