@@ -371,16 +371,11 @@ fn entry_and_modify() {
 fn entry_or_default() {
     let mut map = OrderMap::new();
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, Default, PartialEq)]
     enum TestEnum {
+        #[default]
         DefaultValue,
         NonDefaultValue,
-    }
-
-    impl Default for TestEnum {
-        fn default() -> Self {
-            TestEnum::DefaultValue
-        }
     }
 
     map.insert(1, TestEnum::NonDefaultValue);
