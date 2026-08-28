@@ -62,15 +62,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 members = ["test-nostd", "test-serde", "test-sval"]
 
 [lints.rust]
-private-bounds = "deny"
-private-interfaces = "deny"
-unnameable-types = "deny"
-unreachable-pub = "deny"
+private_bounds = "deny"
+private_interfaces = "deny"
+unnameable_types = "deny"
+unreachable_pub = "deny"
 
 # We *mostly* avoid unsafe code, but there are a few fine-grained cases allowed
-unsafe-code = "deny"
+unsafe_code = "deny"
 
-rust-2018-idioms = "warn"
+rust_2018_idioms = "warn"
 
 [lints.clippy]
 style = "allow"
