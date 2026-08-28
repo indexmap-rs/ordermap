@@ -578,6 +578,7 @@ mod tests {
         let slice = map.as_slice();
 
         // RangeFull
+        #[expect(clippy::redundant_slicing)]
         check(&vec[..], &map[..], &slice[..]);
 
         for i in 0usize..10 {
