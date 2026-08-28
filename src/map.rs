@@ -1493,14 +1493,7 @@ impl<K, V, S> Index<usize> for OrderMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index(&self, index: usize) -> &V {
-        if let Some((_, value)) = self.get_index(index) {
-            value
-        } else {
-            panic!(
-                "index out of bounds: the len is {len} but the index is {index}",
-                len = self.len()
-            );
-        }
+        &self.inner[index]
     }
 }
 
@@ -1538,13 +1531,7 @@ impl<K, V, S> IndexMut<usize> for OrderMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index_mut(&mut self, index: usize) -> &mut V {
-        let len: usize = self.len();
-
-        if let Some((_, value)) = self.get_index_mut(index) {
-            value
-        } else {
-            panic!("index out of bounds: the len is {len} but the index is {index}");
-        }
+        &mut self.inner[index]
     }
 }
 
