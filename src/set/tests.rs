@@ -859,6 +859,7 @@ fn get_range() {
     let result = set.get_range(0..0);
     assert_eq!(result.unwrap().len(), 0);
 
+    #[expect(clippy::reversed_empty_ranges)]
     let result = set.get_range(2..1);
     assert!(result.is_none());
 }

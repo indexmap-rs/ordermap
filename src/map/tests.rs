@@ -765,6 +765,7 @@ fn get_range() {
     let result = index_map.get_range(2..2);
     assert!(result.unwrap().is_empty());
 
+    #[expect(clippy::reversed_empty_ranges)]
     let result = index_map.get_range(4..2);
     assert!(result.is_none());
 
@@ -786,6 +787,7 @@ fn get_range_mut() {
     let result = index_map.get_range_mut(2..2);
     assert!(result.unwrap().is_empty());
 
+    #[expect(clippy::reversed_empty_ranges)]
     let result = index_map.get_range_mut(4..2);
     assert!(result.is_none());
 
