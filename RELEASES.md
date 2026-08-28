@@ -1,5 +1,9 @@
 # Releases
 
+## 1.2.1 (2026-08-28)
+
+- Sync changes from `indexmap v2.14.1`
+
 ## 1.2.0 (2026-02-09)
 
 - **MSRV**: Rust 1.85.0 or later is now required.
