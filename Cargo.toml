@@ -70,7 +70,7 @@ unnameable_types = "deny"
 unreachable_pub = "deny"
 unsafe_code = "deny"
 
-rust_2018_idioms = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
 
 [lints.clippy]
 style = "allow"
