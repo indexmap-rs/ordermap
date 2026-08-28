@@ -42,8 +42,8 @@ fn insert() {
 
 #[test]
 fn insert_full() {
-    let insert = vec![9, 2, 7, 1, 4, 6, 13];
-    let present = vec![1, 6, 2];
+    let insert = [9, 2, 7, 1, 4, 6, 13];
+    let present = [1, 6, 2];
     let mut set = IndexSet::with_capacity(insert.len());
 
     for (i, &elt) in insert.iter().enumerate() {
@@ -90,8 +90,7 @@ fn insert_2() {
 
 #[test]
 fn insert_dup() {
-    let mut elements = vec![0, 2, 4, 6, 8];
-    let mut set: IndexSet<u8> = elements.drain(..).collect();
+    let mut set = IndexSet::<u8>::from_iter([0, 2, 4, 6, 8]);
     {
         let (i, v) = set.get_full(&0).unwrap();
         assert_eq!(set.len(), 5);
@@ -175,8 +174,8 @@ fn replace() {
 
 #[test]
 fn replace_full() {
-    let replace = vec![9, 2, 7, 1, 4, 6, 13];
-    let present = vec![1, 6, 2];
+    let replace = [9, 2, 7, 1, 4, 6, 13];
+    let present = [1, 6, 2];
     let mut set = IndexSet::with_capacity(replace.len());
 
     for (i, &elt) in replace.iter().enumerate() {
@@ -223,8 +222,7 @@ fn replace_2() {
 
 #[test]
 fn replace_dup() {
-    let mut elements = vec![0, 2, 4, 6, 8];
-    let mut set: IndexSet<u8> = elements.drain(..).collect();
+    let mut set = IndexSet::<u8>::from_iter([0, 2, 4, 6, 8]);
     {
         let (i, v) = set.get_full(&0).unwrap();
         assert_eq!(set.len(), 5);
@@ -426,9 +424,9 @@ fn partial_eq_and_eq() {
 #[test]
 fn extend() {
     let mut set = IndexSet::new();
-    set.extend(vec![&1, &2, &3, &4]);
-    set.extend(vec![5, 6]);
-    assert_eq!(set.into_iter().collect::<Vec<_>>(), vec![1, 2, 3, 4, 5, 6]);
+    set.extend([&1, &2, &3, &4]);
+    set.extend([5, 6]);
+    assert_eq!(set.into_iter().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
 }
 
 #[test]
