@@ -231,7 +231,7 @@ fn shrink_to_fit() {
         assert_eq!(map.len(), i);
         map.insert(i, i * i);
         assert_eq!(map.len(), i + 1);
-        assert!(map.capacity() >= i + 1);
+        assert!(map.capacity() > i);
         assert_eq!(map.get(&i), Some(&(i * i)));
         map.shrink_to_fit();
         assert_eq!(map.len(), i + 1);
