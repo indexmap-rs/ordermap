@@ -708,6 +708,8 @@ where
     /// Computes in **O(1)** time (average).
     #[track_caller]
     pub fn replace_index(&mut self, index: usize, key: K) -> Result<K, (usize, K)> {
+        assert_index_lt(index, self.len());
+
         // If there's a direct match, we don't even need to hash it.
         let entry = &mut self.as_entries_mut()[index];
         if key == entry.key {

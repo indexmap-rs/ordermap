@@ -217,6 +217,8 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     #[track_caller]
     pub fn swap_indices(self, other: usize) {
         if self.index != other {
+            assert_index_lt(other, self.map.len());
+
             // Since we already know where our bucket is, we only need to find the other.
             let hash = self.map.entries[other].hash;
             let other_mut = self.map.indices.find_mut(hash.get(), move |&i| i == other);
@@ -377,6 +379,7 @@ impl<'a, K, V> VacantEntry<'a, K, V> {
     #[track_caller]
     pub fn replace_index(self, index: usize) -> (K, OccupiedEntry<'a, K, V>) {
         let Self { map, hash, key } = self;
+        assert_index_lt(index, map.len());
 
         // NB: This removal and insertion isn't "no grow" (with unreachable hasher)
         // because hashbrown's tombstones might force a resize anyway.
