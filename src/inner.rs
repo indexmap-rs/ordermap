@@ -15,7 +15,7 @@ use core::mem;
 use core::ops::RangeBounds;
 use hashbrown::hash_table;
 
-use crate::util::simplify_range;
+use crate::util::{assert_index_le, assert_index_lt, simplify_range};
 use crate::{Bucket, Equivalent, HashValue, TryReserveError};
 
 type Indices = hash_table::HashTable<usize>;
@@ -195,11 +195,7 @@ impl<K, V> Core<K, V> {
 
     #[track_caller]
     pub(crate) fn split_off(&mut self, at: usize) -> Self {
-        let len = self.entries.len();
-        assert!(
-            at <= len,
-            "index out of bounds: the len is {len} but the index is {at}. Expected index <= len"
-        );
+        assert_index_le(at, self.len());
 
         self.erase_indices(at, self.entries.len());
         let entries = self.entries.split_off(at);
@@ -651,9 +647,10 @@ impl<K, V> Core<K, V> {
 
     #[track_caller]
     pub(super) fn move_index(&mut self, from: usize, to: usize) {
+        assert_index_lt(from, self.len());
         let from_hash = self.entries[from].hash;
         if from != to {
-            let _ = self.entries[to]; // explicit bounds check
+            assert_index_lt(to, self.len());
 
             // Find the bucket index first so we won't lose it among other updated indices.
             let bucket = self

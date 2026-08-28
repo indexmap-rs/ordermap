@@ -43,7 +43,7 @@ use core::ops::{Index, IndexMut, RangeBounds};
 use std::hash::RandomState;
 
 use crate::inner::Core;
-use crate::util::{third, try_simplify_range};
+use crate::util::{assert_index_le, assert_index_lt, third, try_simplify_range};
 use crate::{Bucket, Equivalent, GetDisjointMutError, HashValue, TryReserveError};
 
 /// A hash table where the iteration order of the key-value pairs is independent
@@ -595,12 +595,7 @@ where
     /// ```
     #[track_caller]
     pub fn insert_before(&mut self, mut index: usize, key: K, value: V) -> (usize, Option<V>) {
-        let len = self.len();
-
-        assert!(
-            index <= len,
-            "index out of bounds: the len is {len} but the index is {index}. Expected index <= len"
-        );
+        assert_index_le(index, self.len());
 
         match self.entry(key) {
             Entry::Occupied(mut entry) => {
@@ -683,21 +678,13 @@ where
         let len = self.len();
         match self.entry(key) {
             Entry::Occupied(mut entry) => {
-                assert!(
-                    index < len,
-                    "index out of bounds: the len is {len} but the index is {index}"
-                );
-
+                assert_index_lt(index, len);
                 let old = mem::replace(entry.get_mut(), value);
                 entry.move_index(index);
                 Some(old)
             }
             Entry::Vacant(entry) => {
-                assert!(
-                    index <= len,
-                    "index out of bounds: the len is {len} but the index is {index}. Expected index <= len"
-                );
-
+                assert_index_le(index, len);
                 entry.shift_insert(index, value);
                 None
             }
@@ -1709,14 +1696,8 @@ impl<K, V, S> Index<usize> for IndexMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index(&self, index: usize) -> &V {
-        if let Some((_, value)) = self.get_index(index) {
-            value
-        } else {
-            panic!(
-                "index out of bounds: the len is {len} but the index is {index}",
-                len = self.len()
-            );
-        }
+        assert_index_lt(index, self.len());
+        &self.as_entries()[index].value
     }
 }
 
@@ -1754,13 +1735,8 @@ impl<K, V, S> IndexMut<usize> for IndexMap<K, V, S> {
     ///
     /// ***Panics*** if `index` is out of bounds.
     fn index_mut(&mut self, index: usize) -> &mut V {
-        let len: usize = self.len();
-
-        if let Some((_, value)) = self.get_index_mut(index) {
-            value
-        } else {
-            panic!("index out of bounds: the len is {len} but the index is {index}");
-        }
+        assert_index_lt(index, self.len());
+        &mut self.as_entries_mut()[index].value
     }
 }
 
