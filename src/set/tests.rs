@@ -338,7 +338,7 @@ fn shrink_to_fit() {
         assert_eq!(set.len(), i);
         set.insert(i);
         assert_eq!(set.len(), i + 1);
-        assert!(set.capacity() >= i + 1);
+        assert!(set.capacity() > i);
         assert_eq!(set.get(&i), Some(&i));
         set.shrink_to_fit();
         assert_eq!(set.len(), i + 1);
