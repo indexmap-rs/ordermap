@@ -23,11 +23,14 @@
 macro_rules! ordermap_with_default {
     ($H:ty; $($key:expr => $value:expr,)+) => { $crate::ordermap_with_default!($H; $($key => $value),+) };
     ($H:ty; $($key:expr => $value:expr),*) => {{
-        let builder = ::core::hash::BuildHasherDefault::<$H>::new();
-        const CAP: usize = <[()]>::len(&[$({ stringify!($key); }),*]);
         #[allow(unused_mut)]
-        // Specify your custom `H` (must implement Default + Hasher) as the hasher:
-        let mut map = $crate::OrderMap::with_capacity_and_hasher(CAP, builder);
+        let mut map = $crate::OrderMap::with_capacity_and_hasher(
+            // Note: `stringify!($key)` is just here to consume the repetition,
+            // but we throw away that string literal during constant evaluation.
+            const { <[()]>::len(&[$({ stringify!($key); }),*]) },
+            // Specify your custom `H` (must implement Default + Hasher) as the hasher:
+            ::core::hash::BuildHasherDefault::<$H>::new(),
+        );
         $(
             map.insert($key, $value);
         )*
@@ -58,18 +61,17 @@ macro_rules! ordermap_with_default {
 /// ```
 macro_rules! ordermap {
     ($($key:expr => $value:expr,)+) => { $crate::ordermap!($($key => $value),+) };
-    ($($key:expr => $value:expr),*) => {
-        {
+    ($($key:expr => $value:expr),*) => {{
+        let mut map = $crate::OrderMap::with_capacity(
             // Note: `stringify!($key)` is just here to consume the repetition,
             // but we throw away that string literal during constant evaluation.
-            const CAP: usize = <[()]>::len(&[$({ stringify!($key); }),*]);
-            let mut map = $crate::OrderMap::with_capacity(CAP);
-            $(
-                map.insert($key, $value);
-            )*
-            map
-        }
-    };
+            const { <[()]>::len(&[$({ stringify!($key); }),*]) },
+        );
+        $(
+            map.insert($key, $value);
+        )*
+        map
+    }};
 }
 
 /// Create an [`OrderSet`][crate::OrderSet] from a list of values
@@ -97,11 +99,14 @@ macro_rules! ordermap {
 macro_rules! orderset_with_default {
     ($H:ty; $($value:expr,)+) => { $crate::orderset_with_default!($H; $($value),+) };
     ($H:ty; $($value:expr),*) => {{
-        let builder = ::core::hash::BuildHasherDefault::<$H>::new();
-        const CAP: usize = <[()]>::len(&[$({ stringify!($value); }),*]);
         #[allow(unused_mut)]
-        // Specify your custom `H` (must implement Default + Hash) as the hasher:
-        let mut set = $crate::OrderSet::with_capacity_and_hasher(CAP, builder);
+        let mut set = $crate::OrderSet::with_capacity_and_hasher(
+            // Note: `stringify!($value)` is just here to consume the repetition,
+            // but we throw away that string literal during constant evaluation.
+            const { <[()]>::len(&[$({ stringify!($value); }),*]) },
+            // Specify your custom `H` (must implement Default + Hash) as the hasher:
+            ::core::hash::BuildHasherDefault::<$H>::new(),
+        );
         $(
             set.insert($value);
         )*
@@ -132,16 +137,15 @@ macro_rules! orderset_with_default {
 /// ```
 macro_rules! orderset {
     ($($value:expr,)+) => { $crate::orderset!($($value),+) };
-    ($($value:expr),*) => {
-        {
+    ($($value:expr),*) => {{
+        let mut set = $crate::OrderSet::with_capacity(
             // Note: `stringify!($value)` is just here to consume the repetition,
             // but we throw away that string literal during constant evaluation.
-            const CAP: usize = <[()]>::len(&[$({ stringify!($value); }),*]);
-            let mut set = $crate::OrderSet::with_capacity(CAP);
-            $(
-                set.insert($value);
-            )*
-            set
-        }
-    };
+            const { <[()]>::len(&[$({ stringify!($value); }),*]) },
+        );
+        $(
+            set.insert($value);
+        )*
+        set
+    }};
 }
